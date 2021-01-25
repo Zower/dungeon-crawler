@@ -53,18 +53,19 @@ impl ggez::event::EventHandler for Game {
         Ok(())
     }
 
-    // fn key_down_event(
-    //     &mut self,
-    //     ctx: &mut Context,
-    //     keycode: KeyCode,
-    //     _keymods: ggez::input::keyboard::KeyMods,
-    //     _repeat: bool,
-    // ) {
-    //     println!("{:?}", keycode);
-    //     match keycode {
-    //         KeyCode::Escape => ggez::event::quit(),
-    //     }
-    // }
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        keycode: ggez::input::keyboard::KeyCode,
+        _keymods: ggez::input::keyboard::KeyMods,
+        _repeat: bool,
+    ) {
+        println!("{:?}", keycode);
+        match keycode {
+            ggez::input::keyboard::KeyCode::Escape => ggez::event::quit(ctx),
+            _ => (),
+        }
+    }
 }
 
 fn main() {
