@@ -60,7 +60,6 @@ impl ggez::event::EventHandler for Game {
         _keymods: ggez::input::keyboard::KeyMods,
         _repeat: bool,
     ) {
-        println!("{:?}", keycode);
         match keycode {
             ggez::input::keyboard::KeyCode::Escape => ggez::event::quit(ctx),
             _ => (),
