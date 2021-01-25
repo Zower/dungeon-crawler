@@ -1,1 +1,1 @@
-A to be failed(tm) attempt at a pixel-dungeoncrawler, with turn based combat
+A to be failed™ attempt at a pixel-dungeoncrawler, with turn based combat
