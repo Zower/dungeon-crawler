@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use ggez::graphics;
 use ggez::input::keyboard;
 use ggez::*;
