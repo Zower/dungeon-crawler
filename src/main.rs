@@ -5,6 +5,7 @@ mod level;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    render::camera::Camera,
     window::WindowMode,
 };
 
@@ -40,6 +41,7 @@ fn main() {
         .add_system(update_fps.system())
         .add_system(move_player_grid.system())
         .add_system(move_player_transform.system())
+        .add_system(update_camera.system())
         .run();
 }
 
@@ -85,6 +87,20 @@ fn setup(
         })
         .with(Player)
         .with(GridPosition { x: 0, y: 0 });
+}
+
+fn update_camera(
+    mut query_cam: Query<(&Camera, &mut Transform)>,
+    query_player: Query<&Transform, With<Player>>,
+) {
+    for (cam, mut trans_cam) in query_cam.iter_mut() {
+        if cam.name == Some(String::from("Camera2d")) {
+            for trans_player in query_player.iter() {
+                trans_cam.translation.x = trans_player.translation.x;
+                trans_cam.translation.y = trans_player.translation.y;
+            }
+        }
+    }
 }
 
 fn move_player_grid(
