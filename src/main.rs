@@ -1,13 +1,13 @@
 //#![windows_subsystem = "windows"]
-
+//! A to be failed attempt at a 2D pixel dungeon-crawler
+mod fps_diagnostic;
 mod level;
 
-use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
-    prelude::*,
-    render::camera::Camera,
-    window::WindowMode,
-};
+use fps_diagnostic::FPSScreenDiagnostic;
+
+use level::LevelBuilder;
+
+use bevy::prelude::*;
 
 struct Player;
 #[derive(Debug)]
@@ -29,20 +29,27 @@ fn main() {
             height: 600.0,
             vsync: false,
             resizable: true,
-            mode: WindowMode::Windowed,
+            mode: bevy::window::WindowMode::Windowed,
             cursor_locked: false,
             cursor_visible: true,
             decorations: true,
         })
+        .add_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .add_resource(LevelBuilder::default())
         .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(level::Level)
+        //.add_plugin(LevelPlugin)
+        .add_plugin(FPSScreenDiagnostic)
         .add_startup_system(setup.system())
-        .add_system(update_fps.system())
         .add_system(move_player_grid.system())
         .add_system(move_player_transform.system())
         .add_system(update_camera.system())
+        .add_startup_system(test_builder.system())
         .run();
+}
+
+fn test_builder(level_builder: Res<LevelBuilder>) {
+    let level = level_builder.build();
+    level.print();
 }
 
 fn setup(
@@ -52,6 +59,7 @@ fn setup(
 ) {
     let texture_char = asset_server.load("chars/new_juniper.png");
 
+    // Cameras
     commands
         .spawn(CameraUiBundle::default())
         .spawn(Camera2dBundle::default());
@@ -90,7 +98,7 @@ fn setup(
 }
 
 fn update_camera(
-    mut query_cam: Query<(&Camera, &mut Transform)>,
+    mut query_cam: Query<(&bevy::render::camera::Camera, &mut Transform)>,
     query_player: Query<&Transform, With<Player>>,
 ) {
     for (cam, mut trans_cam) in query_cam.iter_mut() {
@@ -129,18 +137,5 @@ fn move_player_transform(mut query: Query<(&GridPosition, &mut Transform), With<
         transform.translation.x = pos.x as f32 * 5.0;
         transform.translation.y = pos.y as f32 * 5.0;
         transform.translation.x = pos.x as f32 * 5.0;
-    }
-}
-
-fn update_fps(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text>) {
-    if let Some(value) = diagnostics
-        .get(FrameTimeDiagnosticsPlugin::FPS)
-        .unwrap()
-        .value()
-    {
-        let fps = value as i32;
-        for mut text in query.iter_mut() {
-            text.value = "FPS: ".to_owned() + &fps.to_string();
-        }
     }
 }
