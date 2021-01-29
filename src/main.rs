@@ -7,15 +7,12 @@ use fps_diagnostic::FPSScreenDiagnostic;
 
 use level::{LevelBuilder, LevelSize};
 
-use image::GenericImageView;
-
 use bevy::prelude::*;
 use bevy::winit::WinitWindows;
 
 struct Player;
 
 struct MoveState(Direction);
-
 struct MoveTimer(Timer);
 
 #[derive(Debug)]
@@ -56,7 +53,6 @@ fn main() {
         .add_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .add_resource(LevelBuilder::default())
         .add_resource(Levels(Vec::<level::Level>::new()))
-        .add_resource(MoveState(Direction::Still))
         .add_resource(MoveTimer(Timer::from_seconds(0.08, true)))
         .add_plugins(DefaultPlugins)
         .add_plugin(FPSScreenDiagnostic)
@@ -118,50 +114,55 @@ fn update_camera(
     }
 }
 
-fn update_direction(mut move_state: ResMut<MoveState>, keyboard_input: Res<Input<KeyCode>>) {
-    if keyboard_input.pressed(KeyCode::W) {
-        move_state.0 = Direction::Up;
+fn update_direction(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<&mut MoveState, With<Player>>,
+) {
+    for mut move_state in query.iter_mut() {
+        if keyboard_input.pressed(KeyCode::W) {
+            move_state.0 = Direction::Up;
+        }
+        if keyboard_input.pressed(KeyCode::A) {
+            move_state.0 = Direction::Left;
+        }
+        if keyboard_input.pressed(KeyCode::S) {
+            move_state.0 = Direction::Down;
+        }
+        if keyboard_input.pressed(KeyCode::D) {
+            move_state.0 = Direction::Right;
+        }
+        if keyboard_input.just_released(KeyCode::W)
+            || keyboard_input.just_released(KeyCode::A)
+            || keyboard_input.just_released(KeyCode::S)
+            || keyboard_input.just_released(KeyCode::D)
+        {
+            move_state.0 = Direction::Still
+        }
     }
-    if keyboard_input.pressed(KeyCode::A) {
-        move_state.0 = Direction::Left;
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        move_state.0 = Direction::Down;
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        move_state.0 = Direction::Right;
-    }
-    if keyboard_input.just_released(KeyCode::W)
-        || keyboard_input.just_released(KeyCode::A)
-        || keyboard_input.just_released(KeyCode::S)
-        || keyboard_input.just_released(KeyCode::D)
-    {
-        move_state.0 = Direction::Still
-    }
-
-    //println!("{:?}", move_state.0);
 }
 
 fn move_player(
     time: Res<Time>,
     mut timer: ResMut<MoveTimer>,
-    move_state: Res<MoveState>,
     levels: Res<Levels>,
     mut query: Query<(&mut GridPosition, &mut Transform), With<Player>>,
+    mut state: Query<&MoveState, With<Player>>,
 ) {
     if !timer.0.tick(time.delta_seconds()).finished() {
         return;
     }
 
     for (mut pos, mut transform) in query.iter_mut() {
-        match move_state.0 {
-            Direction::Up => pos.y += 1,
-            Direction::Down => pos.y -= 1,
-            Direction::Left => pos.x -= 1,
-            Direction::Right => pos.x += 1,
-            Direction::Still => (),
+        for move_state in state.iter_mut() {
+            match move_state.0 {
+                Direction::Up => pos.y += 1,
+                Direction::Down => pos.y -= 1,
+                Direction::Left => pos.x -= 1,
+                Direction::Right => pos.x += 1,
+                Direction::Still => (),
+            }
         }
-        println!("{:?}, x: {}, y: {}", move_state.0, pos.x, pos.y);
+        //println!("{:?}, x: {}, y: {}", move_state.0, pos.x, pos.y);
 
         let trans = levels.0[0].get_translation(pos.x, pos.y);
 
@@ -195,34 +196,11 @@ fn setup(
         .spawn(Camera2dBundle::default());
 
     commands
-        .spawn(TextBundle {
-            text: Text {
-                value: "FPS: ".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
-                    font_size: 25.0,
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Top,
-                        horizontal: HorizontalAlign::Left,
-                    },
-                    color: Color::AQUAMARINE,
-                },
-            },
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: Rect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(10.0),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            ..Default::default()
-        })
         .spawn(SpriteBundle {
             material: materials.add(texture_char.into()),
             ..Default::default()
         })
         .with(Player)
-        .with(GridPosition { x: 0, y: 0 });
+        .with(GridPosition { x: 0, y: 0 })
+        .with(MoveState(Direction::Still));
 }
