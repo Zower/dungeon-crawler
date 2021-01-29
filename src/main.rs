@@ -5,9 +5,8 @@ mod level;
 
 use fps_diagnostic::FPSScreenDiagnostic;
 
-use level::LevelBuilder;
+use level::{LevelBuilder, LevelSize};
 
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
 struct Player;
@@ -16,6 +15,7 @@ struct MoveState(Direction);
 
 struct MoveTimer(Timer);
 
+#[derive(Debug)]
 enum Direction {
     Up,
     Down,
@@ -54,7 +54,7 @@ fn main() {
         .add_resource(LevelBuilder::default())
         .add_resource(Levels(Vec::<level::Level>::new()))
         .add_resource(MoveState(Direction::Still))
-        .add_resource(MoveTimer(Timer::from_seconds(0.016, true)))
+        .add_resource(MoveTimer(Timer::from_seconds(0.08, true)))
         .add_plugins(DefaultPlugins)
         .add_plugin(FPSScreenDiagnostic)
         .add_startup_system(test_builder.system())
@@ -64,27 +64,41 @@ fn main() {
         .add_system(update_camera.system())
         .run();
 }
-
 fn test_builder(
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
     mut level_builder: ResMut<LevelBuilder>,
+    mut levels: ResMut<Levels>,
 ) {
     let level = level_builder
         .add_texture(
             level::TileType::Floor,
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
+        .set_size(LevelSize {
+            height: 20,
+            length: 20,
+        })
         .build()
         .unwrap();
 
-    //level.print();
+    let mut tiles = vec![];
 
-    commands.spawn(SpriteBundle {
-        material: level.get_texture(0),
-        ..Default::default()
-    });
+    for (i, tile) in level.tiles().enumerate() {
+        tiles.push(SpriteBundle {
+            material: level.get_texture(i),
+            transform: Transform {
+                translation: Vec3::new(tile.x(), tile.y(), 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+    }
+
+    levels.0.push(level);
+
+    commands.spawn_batch(tiles);
 }
 
 fn update_camera(
@@ -121,15 +135,18 @@ fn update_direction(mut move_state: ResMut<MoveState>, keyboard_input: Res<Input
     {
         move_state.0 = Direction::Still
     }
+
+    //println!("{:?}", move_state.0);
 }
 
 fn move_player(
     time: Res<Time>,
     mut timer: ResMut<MoveTimer>,
     move_state: Res<MoveState>,
+    levels: Res<Levels>,
     mut query: Query<(&mut GridPosition, &mut Transform), With<Player>>,
 ) {
-    if !timer.0.tick(time.delta_seconds()).just_finished() {
+    if !timer.0.tick(time.delta_seconds()).finished() {
         return;
     }
 
@@ -141,10 +158,12 @@ fn move_player(
             Direction::Right => pos.x += 1,
             Direction::Still => (),
         }
-        transform.translation.y = pos.y as f32 * 5.0;
-        transform.translation.x = pos.x as f32 * 5.0;
-        transform.translation.y = pos.y as f32 * 5.0;
-        transform.translation.x = pos.x as f32 * 5.0;
+        println!("{:?}, x: {}, y: {}", move_state.0, pos.x, pos.y);
+
+        let trans = levels.0[0].get_translation(pos.x, pos.y);
+
+        transform.translation.x = trans.0;
+        transform.translation.y = trans.1;
     }
 }
 
