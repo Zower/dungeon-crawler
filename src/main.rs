@@ -148,11 +148,26 @@ fn move_player(
     }
 }
 
+use bevy::winit::WinitWindows;
+
 fn setup(
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
+    mut windows: ResMut<Windows>,
+    mut winit_windows: ResMut<WinitWindows>,
 ) {
+    // Set window icon :)
+    if let Some(window) = windows.get_primary() {
+        if let Some(winit_window) = winit_windows.get_window(window.id()) {
+            winit_window.set_window_icon(Some(winit::window::Icon::from_rgba(
+                vec![123, 112, 24, 213, 3, 213, 84, 3, 54, 123, 253, 215],
+                1,
+                3,
+            ).unwrap()));
+        }
+    }
+
     let texture_char = asset_server.load("chars/new_juniper.png");
 
     // Cameras
