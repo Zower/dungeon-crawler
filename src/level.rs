@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-const TILE_SIZE: f32 = 32.0;
+pub const TILE_SIZE: f32 = 32.0;
 
 /// A level to be played on
 #[derive(Debug)]

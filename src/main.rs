@@ -2,13 +2,15 @@
 //! A to be failed attempt at a 2D pixel dungeon-crawler
 mod fps_diagnostic;
 mod level;
+mod mouse;
 
 use fps_diagnostic::FPSScreenDiagnostic;
 
 use level::{LevelBuilder, LevelSize};
 
-use bevy::prelude::*;
-use bevy::winit::WinitWindows;
+use mouse::MousePlugin;
+
+use bevy::{prelude::*, winit::WinitWindows};
 
 struct Player;
 
@@ -56,6 +58,7 @@ fn main() {
         .add_resource(MoveTimer(Timer::from_seconds(0.08, true)))
         .add_plugins(DefaultPlugins)
         .add_plugin(FPSScreenDiagnostic)
+        .add_plugin(MousePlugin)
         .add_startup_system(test_builder.system())
         .add_startup_system(setup.system())
         .add_system(update_direction.system())
@@ -63,6 +66,7 @@ fn main() {
         .add_system(update_camera.system())
         .run();
 }
+
 fn test_builder(
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -76,8 +80,8 @@ fn test_builder(
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
         .set_size(LevelSize {
-            height: 20,
-            length: 20,
+            height: 3,
+            length: 3,
         })
         .build()
         .unwrap();
@@ -162,7 +166,6 @@ fn move_player(
                 Direction::Still => (),
             }
         }
-        //println!("{:?}, x: {}, y: {}", move_state.0, pos.x, pos.y);
 
         let trans = levels.0[0].get_translation(pos.x, pos.y);
 
@@ -183,7 +186,8 @@ fn setup(
     if let Some(window) = windows.get_primary() {
         if let Some(winit_window) = winit_windows.get_window(window.id()) {
             winit_window.set_window_icon(Some(
-                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32).unwrap(), //Error handling? No.
+                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
+                    .expect("Failed to create icon"), //Error handling? No.
             ));
         }
     }
