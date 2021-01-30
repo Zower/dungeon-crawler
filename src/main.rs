@@ -182,16 +182,16 @@ fn setup(
     winit_windows: Res<WinitWindows>,
 ) {
     // Set window icon :)
-    let img = image::open("assets/logo/logo.png").unwrap();
+    // let img = image::open("assets/logo/logo.png").unwrap();
 
-    if let Some(window) = windows.get_primary() {
-        if let Some(winit_window) = winit_windows.get_window(window.id()) {
-            winit_window.set_window_icon(Some(
-                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
-                    .expect("Failed to create icon"), //Error handling? No.
-            ));
-        }
-    }
+    // if let Some(window) = windows.get_primary() {
+    //     if let Some(winit_window) = winit_windows.get_window(window.id()) {
+    //         winit_window.set_window_icon(Some(
+    //             winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
+    //                 .expect("Failed to create icon"), //Error handling? No.
+    //         ));
+    //     }
+    // }
 
     let texture_char = asset_server.load("chars/new_juniper.png");
 
