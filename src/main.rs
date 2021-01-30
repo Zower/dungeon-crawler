@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 //! A to be failed attempt at a 2D pixel dungeon-crawler
 mod fps_diagnostic;
 mod level;
@@ -60,6 +60,7 @@ fn main() {
         .add_plugin(FPSScreenDiagnostic)
         .add_plugin(MousePlugin)
         .add_startup_system(build_level.system())
+        .add_startup_system(set_icon.system())
         .add_startup_system(setup.system())
         .add_system(update_direction.system())
         .add_system(move_player.system())
@@ -174,25 +175,31 @@ fn move_player(
     }
 }
 
+// NOTE(erlend):
+// systems that access Resources run on the main thread
+// and winit_window.set_window_icon hangs(deadlock?) when it
+// runs from a different thread...
+fn set_icon(_: &mut World, resources: &mut Resources) {
+    let winit_windows = resources.get::<WinitWindows>().unwrap();
+    let windows = resources.get::<Windows>().unwrap();
+
+    let img = image::open("assets/logo/logo.png").unwrap();
+
+    if let Some(window) = windows.get_primary() {
+        if let Some(winit_window) = winit_windows.get_window(window.id()) {
+            winit_window.set_window_icon(Some(
+                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
+                    .expect("Failed to create icon"), //Error handling? No.
+            ));
+        }
+    }
+}
+
 fn setup(
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    windows: Res<Windows>,
-    winit_windows: Res<WinitWindows>,
 ) {
-    // Set window icon :)
-    // let img = image::open("assets/logo/logo.png").unwrap();
-
-    // if let Some(window) = windows.get_primary() {
-    //     if let Some(winit_window) = winit_windows.get_window(window.id()) {
-    //         winit_window.set_window_icon(Some(
-    //             winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
-    //                 .expect("Failed to create icon"), //Error handling? No.
-    //         ));
-    //     }
-    // }
-
     let texture_char = asset_server.load("chars/new_juniper.png");
 
     // Cameras
