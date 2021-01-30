@@ -59,7 +59,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FPSScreenDiagnostic)
         .add_plugin(MousePlugin)
-        .add_startup_system(test_builder.system())
+        .add_startup_system(build_level.system())
         .add_startup_system(setup.system())
         .add_system(update_direction.system())
         .add_system(move_player.system())
@@ -67,7 +67,7 @@ fn main() {
         .run();
 }
 
-fn test_builder(
+fn build_level(
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
@@ -80,8 +80,8 @@ fn test_builder(
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
         .set_size(LevelSize {
-            height: 3,
-            length: 3,
+            height: 10,
+            length: 10,
         })
         .build()
         .unwrap();
@@ -183,6 +183,7 @@ fn setup(
 ) {
     // Set window icon :)
     let img = image::open("assets/logo/logo.png").unwrap();
+
     if let Some(window) = windows.get_primary() {
         if let Some(winit_window) = winit_windows.get_window(window.id()) {
             winit_window.set_window_icon(Some(
