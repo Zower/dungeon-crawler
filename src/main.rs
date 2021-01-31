@@ -34,11 +34,6 @@ struct GridPosition {
 
 struct Levels(Vec<level::Level>);
 
-// struct Size {
-//     length: i32,
-//     height: i32,
-// }
-
 fn main() {
     App::build()
         .add_resource(WindowDescriptor {
@@ -80,8 +75,8 @@ fn build_level(
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
         .set_size(LevelSize {
-            height: 10,
-            length: 10,
+            height: 7,
+            width: 7,
         })
         .build()
         .unwrap();
@@ -166,7 +161,7 @@ fn move_player(
                 Direction::Still => (),
             }
         }
-
+        //TODO: Only if changed
         let trans = levels.0[0].get_translation(pos.x, pos.y);
 
         transform.translation.x = trans.0;
@@ -181,17 +176,17 @@ fn setup(
     windows: Res<Windows>,
     winit_windows: Res<WinitWindows>,
 ) {
-    // Set window icon :)
-    // let img = image::open("assets/logo/logo.png").unwrap();
+    //Set window icon :)
+    let img = image::open("assets/logo/logo.png").unwrap();
 
-    // if let Some(window) = windows.get_primary() {
-    //     if let Some(winit_window) = winit_windows.get_window(window.id()) {
-    //         winit_window.set_window_icon(Some(
-    //             winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
-    //                 .expect("Failed to create icon"), //Error handling? No.
-    //         ));
-    //     }
-    // }
+    if let Some(window) = windows.get_primary() {
+        if let Some(winit_window) = winit_windows.get_window(window.id()) {
+            winit_window.set_window_icon(Some(
+                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
+                    .expect("Failed to create icon"), //Error handling? No.
+            ));
+        }
+    }
 
     let texture_char = asset_server.load("chars/new_juniper.png");
 
