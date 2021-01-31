@@ -9,6 +9,7 @@ pub const TILE_SIZE: f32 = 32.0;
 pub struct Level {
     /// A list of level tiles
     grid: Vec<GridPiece>,
+    size: LevelSize,
 }
 ///One piece on the grid, will have a texture
 #[derive(Debug)]
@@ -36,18 +37,18 @@ pub struct LevelBuilder {
     size: LevelSize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 /// The size of a level, currently square
 //TODO: Should be a size? is the map always square?
 pub struct LevelSize {
-    pub length: i32,
+    pub width: i32,
     pub height: i32,
 }
 
 impl LevelBuilder {
-    pub fn new(length: i32, height: i32) -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         LevelBuilder {
-            size: LevelSize { length, height },
+            size: LevelSize { width, height },
             ..Default::default()
         }
     }
@@ -55,7 +56,7 @@ impl LevelBuilder {
     pub fn square(size: i32) -> Self {
         LevelBuilder {
             size: LevelSize {
-                length: size,
+                width: size,
                 height: size,
             },
             ..Default::default()
@@ -90,7 +91,7 @@ impl LevelBuilder {
         let mut x = 0.0;
         let mut y = 0.0;
 
-        for gridx in 0..self.size.length {
+        for gridx in 0..self.size.width {
             for gridy in 0..self.size.height {
                 grid.push(GridPiece {
                     texture: TileTexture {
@@ -108,7 +109,10 @@ impl LevelBuilder {
             y = 0.0;
         }
 
-        Ok(Level { grid })
+        Ok(Level {
+            grid,
+            size: self.size.clone(),
+        })
     }
 }
 
@@ -124,7 +128,7 @@ impl Default for LevelBuilder {
 impl Default for LevelSize {
     fn default() -> Self {
         LevelSize {
-            length: 10,
+            width: 10,
             height: 10,
         }
     }
@@ -157,12 +161,20 @@ impl Level {
     }
 
     pub fn get_translation(&self, gridx: i32, gridy: i32) -> (f32, f32) {
-        for piece in self.grid.iter() {
-            if piece.gridx() == gridx && piece.gridy() == gridy {
-                return (piece.x, piece.y);
-            }
+        println!("{}, {}", gridx, gridy);
+
+        for (i, piece) in self.grid.iter().enumerate() {
+            println!(
+                "index: {}, gridx: {}, gridy: {}",
+                i,
+                piece.gridx(),
+                piece.gridy()
+            );
+            // if piece.gridx() == gridx && piece.gridy() == gridy {
+            //     return (piece.x, piece.y);
+            // }
         }
-        (0.0, 0.0)
+        (5.0, 5.0)
     }
 }
 
