@@ -68,11 +68,7 @@ impl LevelBuilder {
         self
     }
 
-    pub fn add_texture(
-        &mut self,
-        tile_type: TileType,
-        texture: Handle<ColorMaterial>,
-    ) -> &mut Self {
+    pub fn add_tile(&mut self, tile_type: TileType, texture: Handle<ColorMaterial>) -> &mut Self {
         self.textures.push(TileTexture {
             texture: texture,
             tile: tile_type,

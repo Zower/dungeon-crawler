@@ -71,7 +71,7 @@ fn build_level(
     mut levels: ResMut<Levels>,
 ) {
     let level = level_builder
-        .add_texture(
+        .add_tile(
             level::TileType::Floor,
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
@@ -195,21 +195,6 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-<<<<<<< HEAD
-    //Set window icon :)
-    let img = image::open("assets/logo/logo.png").unwrap();
-
-    if let Some(window) = windows.get_primary() {
-        if let Some(winit_window) = winit_windows.get_window(window.id()) {
-            winit_window.set_window_icon(Some(
-                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
-                    .expect("Failed to create icon"), //Error handling? No.
-            ));
-        }
-    }
-
-=======
->>>>>>> e24b1e3979c040c7b28e8d1c2027ccdcaa2355a2
     let texture_char = asset_server.load("chars/new_juniper.png");
 
     // Cameras
