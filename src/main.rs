@@ -9,18 +9,11 @@ mod mouse;
 mod movement;
 
 use fps_diagnostic::FPSScreenDiagnostic;
-use level::{GridPiece, LevelBuilder, LevelSize};
+use level::{GridPiece, GridPosition, LevelBuilder, LevelSize, Tile};
 use mouse::MousePlugin;
-use movement::{Direction, MoveState, MovementPlugin};
+use movement::MovementPlugin;
 
 struct Player;
-
-struct Tile;
-#[derive(Debug)]
-pub struct GridPosition {
-    x: i32,
-    y: i32,
-}
 
 struct Path(Vec<GridPiece>);
 
@@ -148,6 +141,5 @@ fn setup(
         })
         .with(Player)
         .with(GridPosition { x: 0, y: 0 })
-        .with(MoveState(Direction::Still))
         .with(Path(Vec::<GridPiece>::new()));
 }

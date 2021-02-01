@@ -1,4 +1,4 @@
-//! Prints fps at top left of screen
+//! Plugin that prints fps at top left of screen, F1 to toggle.
 
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
@@ -61,6 +61,7 @@ fn check_on(
     mut texts: Query<Entity, With<Text>>, // Currently finds all text, TODO: Fix
 ) {
     if keyboard_input.just_pressed(KeyCode::F1) {
+        // Should be configurable?
         match state.0 {
             DiagnosticState::On => {
                 for entity in texts.iter_mut() {
@@ -109,12 +110,12 @@ fn update_fps(
         return;
     }
 
-    let diagnostic = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS).unwrap();
-    if let Some(mut value) = diagnostic.value() {
-        if let Some(mut avg) = diagnostic.average() {
-            value = (value as i32).into();
-            avg = (avg as i32).into();
-            for mut text in query.iter_mut() {
+    for mut text in query.iter_mut() {
+        let diagnostic = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS).unwrap();
+        if let Some(mut value) = diagnostic.value() {
+            if let Some(mut avg) = diagnostic.average() {
+                value = (value as i32).into();
+                avg = (avg as i32).into();
                 text.value =
                     "FPS: ".to_owned() + &value.to_string() + " (" + &avg.to_string() + ")";
             }

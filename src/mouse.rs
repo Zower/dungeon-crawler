@@ -1,3 +1,5 @@
+//! Handles mouse input
+
 use bevy::{input::mouse::MouseButtonInput, prelude::*, window::CursorMoved};
 
 use crate::{level::TILE_SIZE, movement::a_star, GridPosition, Levels, Path, Player};
@@ -46,18 +48,25 @@ fn mouse_update_grid(
                             let desiredy = ((latest.0[1] + trans_cam.translation.y)
                                 / TILE_SIZE as f32)
                                 .round() as i32;
-                            path.0 = a_star(
-                                levels.0.last().unwrap(),
-                                GridPosition {
-                                    // A bit messy, hehe
-                                    x: grid_pos.x,
-                                    y: grid_pos.y,
-                                },
-                                GridPosition {
-                                    x: desiredx,
-                                    y: desiredy,
-                                },
-                            );
+
+                            let level = levels.0.last().unwrap();
+
+                            let goal = GridPosition {
+                                x: desiredx,
+                                y: desiredy,
+                            };
+
+                            if level.in_bounds(&goal) {
+                                path.0 = a_star(
+                                    level,
+                                    GridPosition {
+                                        // A bit messy, hehe
+                                        x: grid_pos.x(),
+                                        y: grid_pos.y(),
+                                    },
+                                    goal,
+                                );
+                            }
                         }
                     }
                 }
@@ -68,7 +77,6 @@ fn mouse_update_grid(
 
         for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
             // Jank way to translate window coordinates into game coordinates
-            //println!("{:?}", event);
             latest.0[0] = event.position[0] + origin[0];
             latest.0[1] = event.position[1] + origin[1];
         }

@@ -1,3 +1,5 @@
+//! Handles everything related to player movement.
+
 use bevy::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
@@ -15,18 +17,27 @@ impl Plugin for MovementPlugin {
 pub fn a_star(level: &Level, start: GridPosition, goal: GridPosition) -> Vec<GridPiece> {
     let mut current: &GridPiece;
 
+    // https://www.redblobgames.com/pathfinding/a-star/introduction.html
     let mut frontier = VecDeque::new();
-    frontier.push_back(level.get_piece(start.x as usize, start.y as usize));
+    frontier.push_back(
+        level
+            .get_piece(start.x() as usize, start.y() as usize)
+            .unwrap(), // Unwrap, if this fails something has gone wrong
+    );
     let mut came_from = HashMap::new();
     came_from.insert(
-        level.get_piece(start.x as usize, start.y as usize), // start
-        level.get_piece(start.x as usize, start.y as usize), // end
+        level
+            .get_piece(start.x() as usize, start.y() as usize) // start
+            .unwrap(), // Unwrap, if this fails something has gone wrong
+        level
+            .get_piece(start.x() as usize, start.y() as usize) // end
+            .unwrap(), // Unwrap, if this fails something has gone wrong
     ); // First just points to itself
 
     while !frontier.is_empty() {
         current = frontier.pop_front().unwrap();
 
-        if current.gridx() == goal.x && current.gridy() == goal.y {
+        if current.gridx() == goal.x() && current.gridy() == goal.y() {
             break;
         }
 
@@ -38,8 +49,12 @@ pub fn a_star(level: &Level, start: GridPosition, goal: GridPosition) -> Vec<Gri
         }
     }
 
-    let begin = level.get_piece(start.x as usize, start.y as usize);
-    let to_go = level.get_piece(goal.x as usize, goal.y as usize);
+    let begin = level
+        .get_piece(start.x() as usize, start.y() as usize)
+        .unwrap();
+    let to_go = level
+        .get_piece(goal.x() as usize, goal.y() as usize)
+        .unwrap();
 
     current = to_go;
     let mut path = Vec::new();
@@ -56,27 +71,39 @@ pub fn a_star(level: &Level, start: GridPosition, goal: GridPosition) -> Vec<Gri
 
 fn update_player_direction(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut MoveState, With<Player>>,
+    levels: Res<Levels>,
+    mut query: Query<(&mut Path, &GridPosition), With<Player>>,
 ) {
-    for mut move_state in query.iter_mut() {
+    let level = levels.0.last().unwrap();
+
+    for (mut path, pos) in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::W) {
-            move_state.0 = Direction::Up;
+            path.0.clear();
+            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Up) {
+                Ok(dir) => path.0.push(dir),
+                Err(_) => (),
+            }
         }
         if keyboard_input.pressed(KeyCode::A) {
-            move_state.0 = Direction::Left;
+            path.0.clear();
+            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Left) {
+                Ok(dir) => path.0.push(dir),
+                Err(_) => (),
+            }
         }
         if keyboard_input.pressed(KeyCode::S) {
-            move_state.0 = Direction::Down;
+            path.0.clear();
+            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Down) {
+                Ok(dir) => path.0.push(dir),
+                Err(_) => (),
+            }
         }
         if keyboard_input.pressed(KeyCode::D) {
-            move_state.0 = Direction::Right;
-        }
-        if keyboard_input.just_released(KeyCode::W)
-            || keyboard_input.just_released(KeyCode::A)
-            || keyboard_input.just_released(KeyCode::S)
-            || keyboard_input.just_released(KeyCode::D)
-        {
-            move_state.0 = Direction::Still
+            path.0.clear();
+            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Right) {
+                Ok(dir) => path.0.push(dir),
+                Err(_) => (),
+            }
         }
     }
 }
@@ -85,50 +112,28 @@ fn move_player(
     time: Res<Time>,
     mut timer: ResMut<MoveTimer>,
     levels: Res<Levels>,
-    mut query: Query<(&mut GridPosition, &mut Transform, &mut Path, &MoveState), With<Player>>,
+    mut query: Query<(&mut GridPosition, &mut Transform, &mut Path), With<Player>>,
 ) {
     if !timer.0.tick(time.delta_seconds()).finished() {
         return;
     }
 
-    for (mut pos, mut transform, mut path, move_state) in query.iter_mut() {
-        match move_state.0 {
-            Direction::Up => {
-                pos.y += 1;
-                path.0.clear()
-            }
-            Direction::Down => {
-                pos.y -= 1;
-                path.0.clear()
-            }
-            Direction::Left => {
-                pos.x -= 1;
-                path.0.clear()
-            }
-            Direction::Right => {
-                pos.x += 1;
-                path.0.clear()
-            }
-            Direction::Still => (),
-        }
-
-        for p in &path.0 {}
-
+    for (mut pos, mut transform, mut path) in query.iter_mut() {
         if !path.0.is_empty() {
             pos.x = path.0[0].gridx();
             pos.y = path.0[0].gridy();
             path.0.remove(0);
+
+            let trans = levels.0[0]
+                .get_translation(pos.x as usize, pos.y as usize)
+                .unwrap(); // If this fails, something has gone wrong somewhere else
+
+            transform.translation.x = trans.0 as f32;
+            transform.translation.y = trans.1 as f32;
         }
-
-        //TODO: Only if changed
-        let trans = levels.0[0].get_translation(pos.x as usize, pos.y as usize);
-
-        transform.translation.x = trans.0 as f32;
-        transform.translation.y = trans.1 as f32;
     }
 }
 
-pub struct MoveState(pub Direction);
 struct MoveTimer(Timer);
 #[derive(Debug)]
 pub enum Direction {
@@ -136,5 +141,4 @@ pub enum Direction {
     Down,
     Left,
     Right,
-    Still,
 }
