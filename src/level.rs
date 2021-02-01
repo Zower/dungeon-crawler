@@ -2,34 +2,34 @@
 
 use bevy::prelude::*;
 
-pub const TILE_SIZE: f32 = 32.0;
+pub const TILE_SIZE: i32 = 32;
 
 /// A level to be played on
 #[derive(Debug)]
 pub struct Level {
     /// A list of level tiles
-    grid: Vec<GridPiece>,
+    grid: Vec<Vec<GridPiece>>,
     size: LevelSize,
 }
-///One piece on the grid, will have a texture
-#[derive(Debug)]
+///One piece on the grid, should have a type
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GridPiece {
     texture: TileTexture,
     gridx: i32,
     gridy: i32,
-    x: f32,
-    y: f32,
-}
-#[derive(Debug, Copy, Clone)]
-pub enum TileType {
-    Floor,
-    Wall,
+    x: i32,
+    y: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileTexture {
     texture: Handle<ColorMaterial>,
     tile: TileType,
+}
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum TileType {
+    Floor,
+    Wall,
 }
 
 pub struct LevelBuilder {
@@ -84,16 +84,17 @@ impl LevelBuilder {
             return Err(EmptyTextureError); //Custom error type yada yada
         }
 
-        let mut x = 0.0;
-        let mut y = 0.0;
+        let mut x = 0;
+        let mut y = 0;
 
         for gridx in 0..self.size.width {
+            let mut grid_depth = Vec::new();
             for gridy in 0..self.size.height {
-                grid.push(GridPiece {
+                grid_depth.push(GridPiece {
                     texture: TileTexture {
-                        texture: self.textures[0].texture.clone(),
-                        tile: self.textures[0].tile.clone(),
-                    }, // This is temporarily only the first texture
+                        texture: self.textures[0].texture.clone(), // This is temporarily only the first texture
+                        tile: self.textures[0].tile.clone(), // This is temporarily only the first tile
+                    },
                     gridx,
                     gridy,
                     x,
@@ -101,8 +102,9 @@ impl LevelBuilder {
                 });
                 y += TILE_SIZE;
             }
+            grid.push(grid_depth);
             x += TILE_SIZE;
-            y = 0.0;
+            y = 0;
         }
 
         Ok(Level {
@@ -131,10 +133,10 @@ impl Default for LevelSize {
 }
 
 impl GridPiece {
-    pub fn x(&self) -> f32 {
+    pub fn x(&self) -> i32 {
         self.x
     }
-    pub fn y(&self) -> f32 {
+    pub fn y(&self) -> i32 {
         self.y
     }
 
@@ -148,29 +150,58 @@ impl GridPiece {
 }
 
 impl Level {
-    pub fn get_texture(&self, grid_pos: usize) -> Handle<ColorMaterial> {
-        self.grid[grid_pos].texture.texture.clone()
+    pub fn get_texture(&self, gridx: usize, gridy: usize) -> Handle<ColorMaterial> {
+        self.grid[gridx][gridy].texture.texture.clone() // Error handling..
     }
 
-    pub fn tiles(&self) -> std::slice::Iter<'_, GridPiece> {
+    pub fn tiles(&self) -> std::slice::Iter<'_, Vec<GridPiece>> {
         self.grid.iter()
     }
 
-    pub fn get_translation(&self, gridx: i32, gridy: i32) -> (f32, f32) {
-        println!("{}, {}", gridx, gridy);
+    pub fn get_piece(&self, gridx: usize, gridy: usize) -> &GridPiece {
+        return &self.grid[gridx][gridy]; // Please handle errors
+    }
 
-        for (i, piece) in self.grid.iter().enumerate() {
-            println!(
-                "index: {}, gridx: {}, gridy: {}",
-                i,
-                piece.gridx(),
-                piece.gridy()
-            );
-            // if piece.gridx() == gridx && piece.gridy() == gridy {
-            //     return (piece.x, piece.y);
-            // }
-        }
-        (5.0, 5.0)
+    pub fn get_translation(&self, gridx: usize, gridy: usize) -> (i32, i32) {
+        let x = self.grid[gridx][gridy].x(); // Do I even need to say anything
+        let y = self.grid[gridx][gridy].y();
+        (x, y)
+    }
+
+    pub fn get_neighbours(&self, gridx: usize, gridy: usize) -> Vec<&GridPiece> {
+        let mut neighbours = Vec::new();
+
+        match self.grid.get(gridx) {
+            Some(row) => {
+                match row.get(gridy + 1) {
+                    Some(piece) => neighbours.push(piece),
+                    None => (),
+                }
+                match row.get(gridy - 1) {
+                    Some(piece) => neighbours.push(piece),
+                    None => (),
+                }
+            }
+            None => (),
+        };
+
+        match self.grid.get(gridx - 1) {
+            Some(row) => match row.get(gridy) {
+                Some(piece) => neighbours.push(piece),
+                None => (),
+            },
+            None => (),
+        };
+
+        match self.grid.get(gridx + 1) {
+            Some(row) => match row.get(gridy) {
+                Some(piece) => neighbours.push(piece),
+                None => (),
+            },
+            None => (),
+        };
+
+        neighbours
     }
 }
 
