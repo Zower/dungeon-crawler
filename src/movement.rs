@@ -1,5 +1,6 @@
 //! Handles everything related to player movement.
 
+use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
@@ -8,9 +9,13 @@ pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_resource(MoveTimer(Timer::from_seconds(0.08, true))) // TODO: FixedTimestep?
-            .add_system(update_player_direction.system())
-            .add_system(move_player.system());
+        app.add_stage(
+            "fixed_update",
+            SystemStage::parallel()
+                .with_run_criteria(FixedTimestep::step(0.08).with_label("movement"))
+                .with_system(move_player.system()),
+        )
+        .add_system(update_player_direction.system());
     }
 }
 
@@ -22,16 +27,16 @@ pub fn a_star(level: &Level, start: GridPosition, goal: GridPosition) -> Vec<Gri
     frontier.push_back(
         level
             .get_piece(start.x() as usize, start.y() as usize)
-            .unwrap(), // Unwrap, if this fails something has gone wrong
+            .unwrap(), // Unwrap, if this fails something else has gone wrong
     );
     let mut came_from = HashMap::new();
     came_from.insert(
         level
             .get_piece(start.x() as usize, start.y() as usize) // start
-            .unwrap(), // Unwrap, if this fails something has gone wrong
+            .unwrap(), // Unwrap, if this fails something else has gone wrong
         level
             .get_piece(start.x() as usize, start.y() as usize) // end
-            .unwrap(), // Unwrap, if this fails something has gone wrong
+            .unwrap(), // Unwrap, if this fails something else has gone wrong
     ); // First just points to itself
 
     while !frontier.is_empty() {
@@ -109,15 +114,9 @@ fn update_player_direction(
 }
 
 fn move_player(
-    time: Res<Time>,
-    mut timer: ResMut<MoveTimer>,
     levels: Res<Levels>,
     mut query: Query<(&mut GridPosition, &mut Transform, &mut Path), With<Player>>,
 ) {
-    if !timer.0.tick(time.delta_seconds()).finished() {
-        return;
-    }
-
     for (mut pos, mut transform, mut path) in query.iter_mut() {
         if !path.0.is_empty() {
             pos.x = path.0[0].gridx();
@@ -134,7 +133,6 @@ fn move_player(
     }
 }
 
-struct MoveTimer(Timer);
 #[derive(Debug)]
 pub enum Direction {
     Up,
