@@ -4,7 +4,7 @@ use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
-use crate::{level::GridPiece, level::Level, GridPosition, Levels, Path, Player};
+use crate::{level::GridPiece, level::Level, Blob, GridPosition, Levels, Path, Player};
 pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
@@ -115,10 +115,16 @@ fn update_player_direction(
 
 fn move_player(
     levels: Res<Levels>,
-    mut query: Query<(&mut GridPosition, &mut Transform, &mut Path), With<Player>>,
+    mut query_blob: Query<(&mut GridPosition, &mut Transform), With<Blob>>,
+    mut query_player: Query<(&mut GridPosition, &mut Transform, &mut Path), With<Player>>,
 ) {
-    for (mut pos, mut transform, mut path) in query.iter_mut() {
+    for (mut pos, mut transform, mut path) in query_player.iter_mut() {
         if !path.0.is_empty() {
+            let blob_x = transform.translation.x;
+            let blob_y = transform.translation.y;
+            let blob_gridx = pos.x;
+            let blob_gridy = pos.y;
+
             pos.x = path.0[0].gridx();
             pos.y = path.0[0].gridy();
             path.0.remove(0);
@@ -129,6 +135,14 @@ fn move_player(
 
             transform.translation.x = trans.0 as f32;
             transform.translation.y = trans.1 as f32;
+
+            for (mut blob_pos, mut blob_transform) in query_blob.iter_mut() {
+                blob_transform.translation.x = blob_x;
+                blob_transform.translation.y = blob_y;
+
+                blob_pos.x = blob_gridx;
+                blob_pos.y = blob_gridy;
+            }
         }
     }
 }

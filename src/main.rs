@@ -9,11 +9,13 @@ mod mouse;
 mod movement;
 
 use fps_diagnostic::FPSScreenDiagnostic;
-use level::{GridPiece, GridPosition, LevelBuilder, LevelSize, Tile};
+use level::{GridPiece, GridPosition, LevelBuilder, Tile};
 use mouse::MousePlugin;
 use movement::MovementPlugin;
 
 struct Player;
+
+struct Blob;
 
 struct Path(Vec<GridPiece>);
 
@@ -34,7 +36,7 @@ fn main() {
             decorations: true,
         })
         .add_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
-        .add_resource(LevelBuilder::default())
+        .add_resource(LevelBuilder::square(7))
         .add_resource(Levels(Vec::<level::Level>::new()))
         .add_plugins(DefaultPlugins)
         .add_plugin(MovementPlugin)
@@ -59,10 +61,6 @@ fn build_level(
             level::TileType::Floor,
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
-        .set_size(LevelSize {
-            height: 7,
-            width: 7,
-        })
         .build()
         .unwrap();
 
@@ -127,7 +125,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let texture_char = asset_server.load("chars/new_juniper.png");
+    let mut texture_char = asset_server.load("chars/new_juniper.png");
 
     // Cameras
     commands
@@ -137,9 +135,27 @@ fn setup(
     commands
         .spawn(SpriteBundle {
             material: materials.add(texture_char.into()),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 1.0),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .with(Player)
         .with(GridPosition { x: 0, y: 0 })
         .with(Path(Vec::<GridPiece>::new()));
+
+    texture_char = asset_server.load("chars/blob.png");
+
+    commands
+        .spawn(SpriteBundle {
+            material: materials.add(texture_char.into()),
+            transform: Transform {
+                translation: Vec3::new(32.0, 0.0, 1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(GridPosition { x: 1, y: 0 })
+        .with(Blob);
 }
