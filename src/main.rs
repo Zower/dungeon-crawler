@@ -17,10 +17,15 @@ struct Player;
 
 struct Blob;
 
+/// A path to walk, this should always be a valid path as there is no validity-checking when moving an entity based on this path
+/// The first element is the next piece, last is the goal
 struct Path(Vec<GridPiece>);
 
 #[derive(Debug)]
-struct Levels(Vec<level::Level>);
+struct Levels {
+    levels: Vec<level::Level>,
+    current: usize,
+}
 
 fn main() {
     App::build()
@@ -37,7 +42,10 @@ fn main() {
         })
         .add_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .add_resource(LevelBuilder::square(7))
-        .add_resource(Levels(Vec::<level::Level>::new()))
+        .add_resource(Levels {
+            levels: Vec::<level::Level>::new(),
+            current: 0,
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(MovementPlugin)
         .add_plugin(FPSScreenDiagnostic)
@@ -61,6 +69,10 @@ fn build_level(
             level::TileType::Floor,
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
+        .add_tile(
+            level::TileType::Wall,
+            materials.add(asset_server.load("tiles/wall.png").into()),
+        )
         .build()
         .unwrap();
 
@@ -83,18 +95,18 @@ fn build_level(
         }
     }
 
-    levels.0.push(level);
+    levels.levels.push(level);
 }
 
 fn update_camera(
-    mut query_cam: Query<(&bevy::render::camera::Camera, &mut Transform)>,
+    mut query_camera: Query<(&bevy::render::camera::Camera, &mut Transform)>,
     query_player: Query<&Transform, With<Player>>,
 ) {
-    for (cam, mut trans_cam) in query_cam.iter_mut() {
-        if cam.name == Some(String::from("Camera2d")) {
+    for (camera, mut transform) in query_camera.iter_mut() {
+        if camera.name == Some(String::from("Camera2d")) {
             for trans_player in query_player.iter() {
-                trans_cam.translation.x = trans_player.translation.x;
-                trans_cam.translation.y = trans_player.translation.y;
+                transform.translation.x = trans_player.translation.x;
+                transform.translation.y = trans_player.translation.y;
             }
         }
     }
@@ -125,7 +137,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let mut texture_char = asset_server.load("chars/new_juniper.png");
+    let texture_char = asset_server.load("chars/new_juniper.png");
 
     // Cameras
     commands
@@ -145,7 +157,7 @@ fn setup(
         .with(GridPosition { x: 0, y: 0 })
         .with(Path(Vec::<GridPiece>::new()));
 
-    texture_char = asset_server.load("chars/blob.png");
+    let texture_char = asset_server.load("chars/blob.png");
 
     commands
         .spawn(SpriteBundle {

@@ -4,7 +4,10 @@ use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
-use crate::{level::GridPiece, level::Level, Blob, GridPosition, Levels, Path, Player};
+use crate::{
+    level::{GridPiece, Level, TileType},
+    Blob, GridPosition, Levels, Path, Player,
+};
 pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
@@ -48,8 +51,10 @@ pub fn a_star(level: &Level, start: GridPosition, goal: GridPosition) -> Vec<Gri
 
         for next in level.get_neighbours(current.gridx() as usize, current.gridy() as usize) {
             if !came_from.contains_key(next) {
-                frontier.push_back(next);
-                came_from.insert(next, current);
+                if next.tile_type() != TileType::Wall {
+                    frontier.push_back(next);
+                    came_from.insert(next, current);
+                }
             }
         }
     }
@@ -79,34 +84,34 @@ fn update_player_direction(
     levels: Res<Levels>,
     mut query: Query<(&mut Path, &GridPosition), With<Player>>,
 ) {
-    let level = levels.0.last().unwrap();
+    let level = &levels.levels[levels.current];
 
     for (mut path, pos) in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::W) {
             path.0.clear();
-            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Up) {
-                Ok(dir) => path.0.push(dir),
+            match level.get_safe_neighbour(pos.x() as usize, pos.y() as usize, Direction::Up) {
+                Ok(neighbour) => path.0.push(neighbour.clone()),
                 Err(_) => (),
             }
         }
         if keyboard_input.pressed(KeyCode::A) {
             path.0.clear();
-            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Left) {
-                Ok(dir) => path.0.push(dir),
+            match level.get_safe_neighbour(pos.x() as usize, pos.y() as usize, Direction::Left) {
+                Ok(neighbour) => path.0.push(neighbour.clone()),
                 Err(_) => (),
             }
         }
         if keyboard_input.pressed(KeyCode::S) {
             path.0.clear();
-            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Down) {
-                Ok(dir) => path.0.push(dir),
+            match level.get_safe_neighbour(pos.x() as usize, pos.y() as usize, Direction::Down) {
+                Ok(neighbour) => path.0.push(neighbour.clone()),
                 Err(_) => (),
             }
         }
         if keyboard_input.pressed(KeyCode::D) {
             path.0.clear();
-            match level.get_neighbour(pos.x() as usize, pos.y() as usize, Direction::Right) {
-                Ok(dir) => path.0.push(dir),
+            match level.get_safe_neighbour(pos.x() as usize, pos.y() as usize, Direction::Right) {
+                Ok(neighbour) => path.0.push(neighbour.clone()),
                 Err(_) => (),
             }
         }
@@ -129,7 +134,7 @@ fn move_player(
             pos.y = path.0[0].gridy();
             path.0.remove(0);
 
-            let trans = levels.0[0]
+            let trans = levels.levels[levels.current]
                 .get_translation(pos.x as usize, pos.y as usize)
                 .unwrap(); // If this fails, something has gone wrong somewhere else
 

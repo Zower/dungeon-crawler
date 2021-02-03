@@ -49,14 +49,14 @@ fn mouse_update_grid(
                                 / TILE_SIZE as f32)
                                 .round() as i32;
 
-                            let level = levels.0.last().unwrap();
+                            let level = &levels.levels[levels.current];
 
                             let goal = GridPosition {
                                 x: desiredx,
                                 y: desiredy,
                             };
 
-                            if level.in_bounds(&goal) {
+                            if level.is_safe(goal.x as usize, goal.y as usize) {
                                 path.0 = a_star(
                                     level,
                                     GridPosition {
