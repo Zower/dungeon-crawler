@@ -1,9 +1,8 @@
 //! Everything related to the levels of the game
 
 use core::panic;
-use std::thread;
 
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 use bevy::prelude::*;
 
