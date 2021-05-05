@@ -3,28 +3,26 @@
 
 use bevy::{prelude::*, winit::WinitWindows};
 
+mod entity;
+mod input;
 mod level;
-mod mouse;
-mod movement;
 mod ui;
 
-use level::{GridPosition, LevelBuilder, Tile};
-use mouse::MousePlugin;
-use movement::MovementPlugin;
+use entity::{Blob, Player};
+use input::MousePlugin;
+use input::MovementPlugin;
+use level::{LevelBuilder, Path, Point, Size};
 use ui::FPSPlugin;
 
-struct Player;
+use crate::level::TileComponent;
 
-struct Blob;
-
-/// A path to walk, this should always be a valid path as there is no validity-checking when moving an entity based on this path
-/// The first element is the next piece, last is the goal
-struct Path(Vec<GridPosition>);
-
+/// Holds all the levels currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
 struct Levels {
     levels: Vec<level::Level>,
-    current: usize,
+    /// Holds the index of the current level.
+    /// Could be a reference to a level instead? Avoid levels.levels.get[levels.current], unsure if this adds unnescessary complexity.
+    current: Option<usize>,
 }
 
 fn main() {
@@ -48,10 +46,13 @@ fn main() {
             decorations: true,
         })
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
-        .insert_resource(LevelBuilder::square(7))
+        .insert_resource(LevelBuilder::new(Size {
+            width: 7,
+            height: 7,
+        }))
         .insert_resource(Levels {
             levels: Vec::<level::Level>::new(),
-            current: 0,
+            current: None,
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(MovementPlugin)
@@ -71,57 +72,50 @@ fn build_level(
     mut level_builder: ResMut<LevelBuilder>,
     mut levels: ResMut<Levels>,
 ) {
+    let current = 0;
+    levels.current = Some(current);
+
     let level = level_builder
         .add_tile(
-            level::TileType::Floor,
+            level::Surface::Floor,
             materials.add(asset_server.load("tiles/floor.png").into()),
         )
         .add_tile(
-            level::TileType::Wall,
+            level::Surface::Wall,
             materials.add(asset_server.load("tiles/wall.png").into()),
         )
-        .build()
+        .build(current)
         .unwrap();
 
-    for rows in level.tiles() {
-        for piece in rows {
+    // Spawns the tiles sprites, this is never used for any logic, they are just drawn on the screen.
+    for row in 0..level.size.width {
+        for column in 0..level.size.height {
+            let tile = level.get_tile(Point { x: row, y: column }).unwrap();
+            let screen_position = tile.screen_position();
             commands
                 .spawn_bundle(SpriteBundle {
-                    material: level.get_texture(piece.gridx() as usize, piece.gridy() as usize),
+                    material: tile.tile_type.texture.clone(),
                     transform: Transform {
-                        translation: Vec3::new(piece.x() as f32, piece.y() as f32, 0.0),
+                        translation: Vec3::new(
+                            screen_position.0.x as f32,
+                            screen_position.0.y as f32,
+                            0f32,
+                        ),
                         ..Default::default()
                     },
                     ..Default::default()
                 })
-                .insert(GridPosition {
-                    x: piece.gridx(),
-                    y: piece.gridy(),
-                })
-                .insert(Tile);
+                .insert(TileComponent);
         }
     }
-
-    // How to spawn a "overlay"
-    // commands.spawn(SpriteBundle {
-    //     material: materials.add(Color::rgba(0.2, 0.66, 0.70, 0.3).into()),
-    //     transform: Transform {
-    //         translation: Vec3::new(0.0, 0.0, 2.0),
-    //         ..Default::default()
-    //     },
-    //     sprite: Sprite::new(Vec2::new(32.0, 32.0)),
-    //     ..Default::default()
-    // });
 
     levels.levels.push(level);
 }
 
 fn update_camera(
-    // mut query_camera: Query<(&bevy::render::camera::Camera, &mut Transform)>,
-    // query_player: Query<&Transform, With<Player>>,
     mut query: QuerySet<(
         Query<(&bevy::render::camera::Camera, &mut Transform)>,
-        Query<(&mut Transform, With<Player>)>,
+        Query<(&Transform, With<Player>)>,
     )>,
 ) {
     // Can't borrow q at the same time, so need to remember values
@@ -174,6 +168,7 @@ fn setup(
 
     commands.spawn_bundle(UiCameraBundle::default());
 
+    // Create the player entity
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(texture_char.into()),
@@ -183,10 +178,10 @@ fn setup(
             },
             ..Default::default()
         })
-        .insert(Player)
-        .insert(GridPosition { x: 0, y: 0 })
-        .insert(Path(Vec::<GridPosition>::new()));
-
+        .insert(Player {
+            current: Point { x: 0, y: 0 },
+            path: Path(Vec::<Point>::new()),
+        });
     let texture_char = asset_server.load("chars/blob.png");
 
     commands
@@ -198,6 +193,7 @@ fn setup(
             },
             ..Default::default()
         })
-        .insert(GridPosition { x: 1, y: 0 })
-        .insert(Blob);
+        .insert(Blob {
+            current: Point { x: 0, y: 1 },
+        });
 }

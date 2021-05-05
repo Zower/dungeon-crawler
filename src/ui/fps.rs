@@ -68,7 +68,7 @@ fn toggle_visibility(
             visible.is_visible = !visible.is_visible
         }
     } else {
-        println!("WARNING: FPSText UI element not found");
+        warn!("FPSText UI element not found")
     }
 }
 
@@ -93,6 +93,6 @@ fn update_text(
             }
         }
     } else {
-        println!("WARNING: FPSText UI element not found");
+        warn!("FPSText UI element not found")
     }
 }
