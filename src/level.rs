@@ -27,9 +27,10 @@ pub struct GridPiece {
     x: i32,
     ///Y coordinate
     y: i32,
+    cost: i32,
 }
 /// A position on the game grid
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct GridPosition {
     pub x: i32,
     pub y: i32,
@@ -123,6 +124,7 @@ impl LevelBuilder {
                     grid_position: GridPosition { x: gridx, y: gridy },
                     x,
                     y,
+                    cost: 1,
                 });
                 y += TILE_SIZE;
             }
@@ -173,6 +175,14 @@ impl GridPiece {
     }
     pub fn tile_type(&self) -> TileType {
         self.tile.tile_type
+    }
+
+    pub fn cost(&self) -> i32 {
+        self.cost
+    }
+
+    pub fn grid_position(&self) -> GridPosition {
+        self.grid_position.clone()
     }
 
     pub fn is_wall(&self) -> bool {

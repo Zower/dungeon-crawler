@@ -3,15 +3,15 @@
 
 use bevy::{prelude::*, winit::WinitWindows};
 
-mod fps_diagnostic;
 mod level;
 mod mouse;
 mod movement;
+mod ui;
 
-use fps_diagnostic::FPSScreenDiagnostic;
-use level::{GridPiece, GridPosition, LevelBuilder, Tile};
+use level::{GridPosition, LevelBuilder, Tile};
 use mouse::MousePlugin;
 use movement::MovementPlugin;
+use ui::FPSPlugin;
 
 struct Player;
 
@@ -19,7 +19,7 @@ struct Blob;
 
 /// A path to walk, this should always be a valid path as there is no validity-checking when moving an entity based on this path
 /// The first element is the next piece, last is the goal
-struct Path(Vec<GridPiece>);
+struct Path(Vec<GridPosition>);
 
 #[derive(Debug)]
 struct Levels {
@@ -29,36 +29,43 @@ struct Levels {
 
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             title: "Game".to_string(),
-            width: 800.0,
-            height: 600.0,
+            width: 800f32,
+            height: 600f32,
             vsync: false,
             resizable: true,
+            resize_constraints: bevy::window::WindowResizeConstraints {
+                min_width: 800f32,
+                max_width: 800f32,
+                min_height: 600f32,
+                max_height: 600f32,
+            },
+            scale_factor_override: None,
             mode: bevy::window::WindowMode::Windowed,
             cursor_locked: false,
             cursor_visible: true,
             decorations: true,
         })
-        .add_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
-        .add_resource(LevelBuilder::square(7))
-        .add_resource(Levels {
+        .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .insert_resource(LevelBuilder::square(7))
+        .insert_resource(Levels {
             levels: Vec::<level::Level>::new(),
             current: 0,
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(MovementPlugin)
-        .add_plugin(FPSScreenDiagnostic)
+        .add_plugin(FPSPlugin)
         .add_plugin(MousePlugin)
         .add_startup_system(build_level.system())
-        .add_startup_system(set_icon.system())
+        // .add_startup_system(set_icon.system())
         .add_startup_system(setup.system())
         .add_system(update_camera.system())
         .run();
 }
 
 fn build_level(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
     mut level_builder: ResMut<LevelBuilder>,
@@ -79,7 +86,7 @@ fn build_level(
     for rows in level.tiles() {
         for piece in rows {
             commands
-                .spawn(SpriteBundle {
+                .spawn_bundle(SpriteBundle {
                     material: level.get_texture(piece.gridx() as usize, piece.gridy() as usize),
                     transform: Transform {
                         translation: Vec3::new(piece.x() as f32, piece.y() as f32, 0.0),
@@ -87,27 +94,49 @@ fn build_level(
                     },
                     ..Default::default()
                 })
-                .with(GridPosition {
+                .insert(GridPosition {
                     x: piece.gridx(),
                     y: piece.gridy(),
                 })
-                .with(Tile);
+                .insert(Tile);
         }
     }
+
+    // How to spawn a "overlay"
+    // commands.spawn(SpriteBundle {
+    //     material: materials.add(Color::rgba(0.2, 0.66, 0.70, 0.3).into()),
+    //     transform: Transform {
+    //         translation: Vec3::new(0.0, 0.0, 2.0),
+    //         ..Default::default()
+    //     },
+    //     sprite: Sprite::new(Vec2::new(32.0, 32.0)),
+    //     ..Default::default()
+    // });
 
     levels.levels.push(level);
 }
 
 fn update_camera(
-    mut query_camera: Query<(&bevy::render::camera::Camera, &mut Transform)>,
-    query_player: Query<&Transform, With<Player>>,
+    // mut query_camera: Query<(&bevy::render::camera::Camera, &mut Transform)>,
+    // query_player: Query<&Transform, With<Player>>,
+    mut query: QuerySet<(
+        Query<(&bevy::render::camera::Camera, &mut Transform)>,
+        Query<(&mut Transform, With<Player>)>,
+    )>,
 ) {
-    for (camera, mut transform) in query_camera.iter_mut() {
+    // Can't borrow q at the same time, so need to remember values
+    let mut new_x = 0.0;
+    let mut new_y = 0.0;
+
+    // No idea what the second value means, maybe if With<Player> is satisifed?
+    for (ply_pos, _) in query.q1_mut().iter_mut() {
+        new_x = ply_pos.translation.x;
+        new_y = ply_pos.translation.y;
+    }
+    for (camera, mut transform) in query.q0_mut().iter_mut() {
         if camera.name == Some(String::from("Camera2d")) {
-            for trans_player in query_player.iter() {
-                transform.translation.x = trans_player.translation.x;
-                transform.translation.y = trans_player.translation.y;
-            }
+            transform.translation.x = new_x;
+            transform.translation.y = new_y;
         }
     }
 }
@@ -116,36 +145,37 @@ fn update_camera(
 // systems that access Resources run on the main thread
 // and winit_window.set_window_icon hangs(deadlock?) when it
 // runs from a different thread...
-fn set_icon(_: &mut World, resources: &mut Resources) {
-    let winit_windows = resources.get::<WinitWindows>().unwrap();
-    let windows = resources.get::<Windows>().unwrap();
+// fn set_icon(_: &mut World, resources: &mut Resources) {
+//     let winit_windows = resources.get::<WinitWindows>().unwrap();
+//     let windows = resources.get::<Windows>().unwrap();
 
-    let img = image::open("assets/logo/logo.png").unwrap();
+//     let img = image::open("assets/logo/logo.png").unwrap();
 
-    if let Some(window) = windows.get_primary() {
-        if let Some(winit_window) = winit_windows.get_window(window.id()) {
-            winit_window.set_window_icon(Some(
-                winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
-                    .expect("Failed to create icon"), //Error handling? No.
-            ));
-        }
-    }
-}
+//     if let Some(window) = windows.get_primary() {
+//         if let Some(winit_window) = winit_windows.get_window(window.id()) {
+//             winit_window.set_window_icon(Some(
+//                 winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
+//                     .expect("Failed to create icon"), //Error handling? No.
+//             ));
+//         }
+//     }
+// }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     let texture_char = asset_server.load("chars/new_juniper.png");
 
-    // Cameras
-    commands
-        .spawn(CameraUiBundle::default())
-        .spawn(Camera2dBundle::default());
+    let mut camera = OrthographicCameraBundle::new_2d();
+    camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
+    commands.spawn_bundle(camera);
+
+    commands.spawn_bundle(UiCameraBundle::default());
 
     commands
-        .spawn(SpriteBundle {
+        .spawn_bundle(SpriteBundle {
             material: materials.add(texture_char.into()),
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 1.0),
@@ -153,14 +183,14 @@ fn setup(
             },
             ..Default::default()
         })
-        .with(Player)
-        .with(GridPosition { x: 0, y: 0 })
-        .with(Path(Vec::<GridPiece>::new()));
+        .insert(Player)
+        .insert(GridPosition { x: 0, y: 0 })
+        .insert(Path(Vec::<GridPosition>::new()));
 
     let texture_char = asset_server.load("chars/blob.png");
 
     commands
-        .spawn(SpriteBundle {
+        .spawn_bundle(SpriteBundle {
             material: materials.add(texture_char.into()),
             transform: Transform {
                 translation: Vec3::new(32.0, 0.0, 1.0),
@@ -168,6 +198,6 @@ fn setup(
             },
             ..Default::default()
         })
-        .with(GridPosition { x: 1, y: 0 })
-        .with(Blob);
+        .insert(GridPosition { x: 1, y: 0 })
+        .insert(Blob);
 }
