@@ -28,7 +28,6 @@ fn mouse_update_grid(
 ) {
     for event in mouse_button_input_events.iter() {
         if event.state == bevy::input::ElementState::Pressed {
-            println!("{:?}", "pressed mb1!");
             if let Ok(mut player) = query_player.single_mut() {
                 for (cam, cam_trans) in query_cam.iter_mut() {
                     // The camera
