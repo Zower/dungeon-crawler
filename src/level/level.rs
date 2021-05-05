@@ -1,14 +1,14 @@
-//! Everything related to the levels of the game
+//! The actual Level and LevelBuilder structs
 
 use bevy::prelude::*;
 use core::panic;
 use rand::Rng;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 
 use super::common::{Point, ScreenPoint, Size};
 use super::tile::*;
-use crate::input::Direction;
+use crate::logic::Direction;
 
 /// Represents a single level
 #[derive(Debug)]
@@ -191,11 +191,6 @@ impl Level {
         }
     }
 }
-/// A wrapper struct that can be put into a priorityqueue, prioritized by cost, so that I dont have to implement ordering on Tile.
-#[derive(Debug, PartialEq, Eq)]
-struct PiecePriority<'a> {
-    tile: &'a Tile,
-}
 
 // More utility focused implementations
 impl Level {
@@ -214,32 +209,44 @@ impl Level {
         }
         None
     }
-    /// A* implemented from https://www.redblobgames.com/pathfinding/a-star/introduction.html, not finished, TODO: Reverse priority_queue, heuristics
-    /// Should be member function? idk
-    pub fn a_star(level: &Level, start: Point, goal: Point) -> Vec<Point> {
-        let mut start_tile = level.get_tile(start).unwrap();
-
+    /// A* implemented from https://www.redblobgames.com/pathfinding/a-star/introduction.html
+    pub fn a_star(&self, start: Point, goal: Point) -> Vec<Point> {
+        let start_tile = self.get_tile(start).unwrap();
         let mut frontier = BinaryHeap::new();
-        frontier.push(PiecePriority { tile: start_tile });
+        frontier.push(Reverse(TilePriority {
+            tile: start_tile,
+            priority: 0,
+        }));
 
         let mut came_from = HashMap::new();
-
         came_from.insert(start_tile, start_tile); // First just points to itself
+
+        let mut cost_so_far = HashMap::new();
+        cost_so_far.insert(start_tile, 0);
 
         while let Some(current) = frontier.pop() {
             // Pop returns PiecePriority, need the tile itself.
-            let current = current.tile;
+            let current = current.0.tile;
 
             if current.position == goal {
                 break;
             }
 
-            for neighbour in level.get_neighbours(current) {
+            for neighbour in self.get_neighbours(current) {
                 // Neighbour is not in came_from
-                if !came_from.contains_key(neighbour) {
+                let new_cost = cost_so_far.get(current).unwrap() + neighbour.cost;
+                // if !came_from.contains_key(neighbour) {
+                if !cost_so_far.contains_key(neighbour)
+                    || new_cost < *cost_so_far.get(neighbour).unwrap()
+                {
                     // Make sure its not a wall, etc.
                     if neighbour.is_safe() {
-                        frontier.push(PiecePriority { tile: neighbour });
+                        cost_so_far.insert(neighbour, new_cost);
+                        let priority = new_cost + Level::heuristic(goal, neighbour.position);
+                        frontier.push(Reverse(TilePriority {
+                            tile: neighbour,
+                            priority,
+                        }));
                         came_from.insert(neighbour, current);
                     }
                 }
@@ -250,25 +257,34 @@ impl Level {
 
         let mut path = Vec::new();
 
-        let mut current = level.get_tile(goal).unwrap();
+        let mut current = self.get_tile(goal).unwrap();
 
         while current != start_tile {
             path.push(current.position);
-            current = came_from[&current];
+            current = came_from.get(current).unwrap();
         }
 
         path.reverse();
 
         path
     }
+    fn heuristic(a: Point, b: Point) -> i32 {
+        i32::abs(a.x - b.x) + i32::abs(a.y - b.y)
+    }
 }
-impl<'a> Ord for PiecePriority<'a> {
+/// A wrapper struct that can be put into a priorityqueue, prioritized by cost, so that I dont have to implement ordering on Tile.
+#[derive(Debug, PartialEq, Eq)]
+struct TilePriority<'a> {
+    tile: &'a Tile,
+    priority: i32,
+}
+impl<'a> Ord for TilePriority<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.tile.cost.cmp(&other.tile.cost)
+        self.priority.cmp(&other.priority)
     }
 }
 
-impl<'a> PartialOrd for PiecePriority<'a> {
+impl<'a> PartialOrd for TilePriority<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }

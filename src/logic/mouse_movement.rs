@@ -1,4 +1,4 @@
-//! Handles mouse input
+//! Handles movement with the mouse
 
 use bevy::{input::mouse::MouseButtonInput, prelude::*, window::CursorMoved};
 
@@ -30,9 +30,8 @@ fn mouse_update_grid(
         if event.state == bevy::input::ElementState::Pressed {
             if let Ok(mut player) = query_player.single_mut() {
                 for (cam, cam_trans) in query_cam.iter_mut() {
-                    // The camera
                     if cam.name == Some(String::from("Camera2d")) {
-                        //                                  (mouse pos   + camera's current position) / tilesize rounded
+                        //                 (mouse pos  + camera current position)  / tilesize
                         let desiredx = (latest.0.x + cam_trans.translation.x) / TILE_SIZE as f32;
                         let desiredy = (latest.0.y + cam_trans.translation.y) / TILE_SIZE as f32;
                         let goal = Point {
@@ -57,14 +56,17 @@ fn mouse_update_grid(
     }
 }
 
-/// Sets the value of LatestMousePosition to the latest hovered screen coordinate
+/// Sets the value of LatestMousePosition to the latest hovered in-game coordinate
 fn mouse_update_position(
     mut latest: ResMut<LatestMousePosition>,
     windows: Res<Windows>,
     mut cursor_moved_events: EventReader<CursorMoved>,
 ) {
     if let Some(window) = windows.get_primary() {
-        let origin = Vec2::new(-(window.width() / 2.0), -(window.height() / 2.0));
+        let origin = Vec2::new(
+            -(window.width() / 2.0) + (TILE_SIZE / 2) as f32,
+            -(window.height() / 2.0) + (TILE_SIZE / 2) as f32,
+        );
         for event in cursor_moved_events.iter() {
             latest.0 = event.position + origin;
         }

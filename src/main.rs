@@ -4,14 +4,14 @@
 use bevy::{prelude::*, winit::WinitWindows};
 
 mod entity;
-mod input;
 mod level;
+mod logic;
 mod ui;
 
 use entity::{Blob, Player};
-use input::MousePlugin;
-use input::MovementPlugin;
 use level::{LevelBuilder, Path, Point, Size};
+use logic::MousePlugin;
+use logic::MovementPlugin;
 use ui::FPSPlugin;
 
 use crate::level::TileComponent;

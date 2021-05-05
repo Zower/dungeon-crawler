@@ -1,9 +1,9 @@
-//! Handles everything related to player movement.
+//! Handles movement from WASD.
 
 use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 
-use crate::{input::Direction, Blob, Levels, Player};
+use crate::{logic::Direction, Blob, Levels, Player};
 pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
