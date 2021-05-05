@@ -106,25 +106,16 @@ impl Level {
     /// Get a reference to a piece
     /// Returns None if the point is OOB for the current level size, or values are less than 0.
     /// # Panics
-    /// Panics if the 2D to 1D conversion returns an index that doesn't exist, or if the tile position doesnt match the input.
+    /// Panics if the tile position doesnt match the input.
     pub fn get_tile(&self, point: Point) -> Option<&Tile> {
-        if point.x < self.size.width && point.y < self.size.height && point.x >= 0 && point.y >= 0 {
-            let index = Level::translate(point, self.size.height);
-
-            if let Some(tile) = self.grid.get(index) {
-                if tile.position.x == point.x && tile.position.y == point.y {
-                    Some(tile)
-                } else {
-                    error!(
-                        "Tile position {:?} doesn't match input {:?}, panicing!",
-                        tile.position, point
-                    );
-                    panic!()
-                }
+        if let Some(index) = self.translate(point) {
+            let tile = self.grid.get(index).unwrap();
+            if tile.position.x == point.x && tile.position.y == point.y {
+                Some(tile)
             } else {
                 error!(
-                    "Tried to get tile at P: {:?}, I: {:?}, but that index doesnt exist, panicing!",
-                    point, index
+                    "Tile position {:?} doesn't match input {:?}, panicing!",
+                    tile.position, point
                 );
                 panic!()
             }
@@ -145,8 +136,11 @@ impl Level {
                 Direction::Still => (),
             }
 
-            self.grid
-                .get(Level::translate(neighbour_point, self.size.height))
+            if let Some(index) = self.translate(neighbour_point) {
+                self.grid.get(index)
+            } else {
+                None
+            }
         } else {
             error!("Tried to get neighbours of a Tile that is not in the grid, panicing!");
             panic!();
@@ -164,40 +158,29 @@ impl Level {
                 y: tile.position.y,
             };
 
-            // If that neighbour exists
-            if let Some(left_neighbour) = self
-                .grid
-                .get(Level::translate(neighbour_point, self.size.height))
-            {
+            // Get index of the point, should always be valid so unwrap() is safe
+            if let Some(index) = self.translate(neighbour_point) {
                 // Push the neighbour to final vector.
-                neighbours.push(left_neighbour)
+                neighbours.push(self.grid.get(index).unwrap());
             }
+
             // Changing to right neighbour
             neighbour_point.x += 2;
-            if let Some(right_neighbour) = self
-                .grid
-                .get(Level::translate(neighbour_point, self.size.height))
-            {
-                neighbours.push(right_neighbour)
+            if let Some(index) = self.translate(neighbour_point) {
+                neighbours.push(self.grid.get(index).unwrap());
             }
+
             // Changing to above neighbour
             neighbour_point.x -= 1;
             neighbour_point.y += 1;
-
-            if let Some(above_neighbour) = self
-                .grid
-                .get(Level::translate(neighbour_point, self.size.height))
-            {
-                neighbours.push(above_neighbour)
+            if let Some(index) = self.translate(neighbour_point) {
+                neighbours.push(self.grid.get(index).unwrap());
             }
+
             // Changing to below neighbour
             neighbour_point.y -= 2;
-
-            if let Some(below_neighbour) = self
-                .grid
-                .get(Level::translate(neighbour_point, self.size.height))
-            {
-                neighbours.push(below_neighbour)
+            if let Some(index) = self.translate(neighbour_point) {
+                neighbours.push(self.grid.get(index).unwrap());
             }
 
             // Return valid neighbours
@@ -207,10 +190,6 @@ impl Level {
             panic!();
         }
     }
-
-    pub fn in_bounds(&self, point: Point) -> bool {
-        point.x < self.size.width && point.y < self.size.height
-    }
 }
 /// A wrapper struct that can be put into a priorityqueue, prioritized by cost, so that I dont have to implement ordering on Tile.
 #[derive(Debug, PartialEq, Eq)]
@@ -218,13 +197,22 @@ struct PiecePriority<'a> {
     tile: &'a Tile,
 }
 
+// More utility focused implementations
 impl Level {
-    // Translate 2D coordinates into a index
-    pub fn translate(point: Point, height: i32) -> usize {
-        let mut index = point.x * height;
-        index += point.y;
+    pub fn in_bounds(&self, point: Point) -> bool {
+        point.x < self.size.width && point.y < self.size.height && point.x >= 0 && point.y >= 0
+    }
 
-        index as usize
+    /// Translate 2D coordinates into a index
+    /// Returns None if the point is OOB.
+    pub fn translate(&self, point: Point) -> Option<usize> {
+        if self.in_bounds(point) {
+            let mut index = point.x * self.size.height;
+            index += point.y;
+
+            return Some(index as usize);
+        }
+        None
     }
     /// A* implemented from https://www.redblobgames.com/pathfinding/a-star/introduction.html, not finished, TODO: Reverse priority_queue, heuristics
     /// Should be member function? idk
