@@ -1,9 +1,9 @@
-//! Handles movement from WASD.
+use crate::{level::Path, Blob, Levels, Player};
 
-use bevy::core::FixedTimestep;
-use bevy::prelude::*;
-
-use crate::{logic::Direction, Blob, Levels, Player};
+use bevy::{core::FixedTimestep, prelude::*};
+pub trait Moveable {
+    fn path(&self) -> &Path;
+}
 pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
@@ -13,50 +13,11 @@ impl Plugin for MovementPlugin {
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(0.09).with_label("movement"))
                 .with_system(move_player.system()),
-        )
-        .add_system(update_player_direction.system());
+        );
     }
 }
 
-fn update_player_direction(
-    keyboard_input: Res<Input<KeyCode>>,
-    levels: Res<Levels>,
-    mut query: Query<&mut Player>,
-) {
-    if let Some(current_level) = levels.current {
-        let level = &levels.levels[current_level];
-
-        if let Ok(mut player) = query.single_mut() {
-            let current_tile = level.get_tile(player.current).unwrap();
-            let mut direction = Direction::Still;
-            if keyboard_input.pressed(KeyCode::W) {
-                direction = Direction::Up;
-            }
-            if keyboard_input.pressed(KeyCode::A) {
-                direction = Direction::Left;
-            }
-            if keyboard_input.pressed(KeyCode::S) {
-                direction = Direction::Down;
-            }
-            if keyboard_input.pressed(KeyCode::D) {
-                direction = Direction::Right;
-            }
-
-            match direction {
-                Direction::Still => (),
-                _ => {
-                    player.path.0.clear();
-                    if let Some(next) = level.get_neighbour(current_tile, direction) {
-                        if next.is_safe() {
-                            player.path.0.push(next.position);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
+/// Moves player one tile
 fn move_player(
     levels: Res<Levels>,
     mut query: QuerySet<(

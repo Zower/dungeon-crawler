@@ -7,9 +7,9 @@ use crate::{
     Levels, Player,
 };
 
-pub struct MousePlugin;
+pub struct MouseMovementPlugin;
 
-impl Plugin for MousePlugin {
+impl Plugin for MouseMovementPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.insert_resource(LatestMousePosition(Vec2::new(0.0, 0.0)))
             .add_system(mouse_update_position.system())

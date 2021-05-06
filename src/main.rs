@@ -1,20 +1,19 @@
 // #![windows_subsystem = "windows"]
 //! A to be failed attempt at a 2D pixel dungeon-crawler
 
-use bevy::{prelude::*, winit::WinitWindows};
-
 mod entity;
+mod input;
 mod level;
 mod logic;
 mod ui;
 
 use entity::{Blob, Player};
-use level::{LevelBuilder, Path, Point, Size};
-use logic::MousePlugin;
+use input::*;
+use level::{LevelBuilder, Path, Point, Size, TileComponent};
 use logic::MovementPlugin;
-use ui::FPSPlugin;
+use ui::*;
 
-use crate::level::TileComponent;
+use bevy::{input::keyboard::KeyboardInput, prelude::*, winit::WinitWindows};
 
 /// Holds all the levels currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
@@ -54,13 +53,17 @@ fn main() {
             levels: Vec::<level::Level>::new(),
             current: None,
         })
+        .insert_resource(ConvarStore::new())
         .add_plugins(DefaultPlugins)
+        .add_plugin(KeyboardMovementPlugin)
+        .add_plugin(MouseMovementPlugin)
         .add_plugin(MovementPlugin)
+        .add_plugin(ConsolePlugin)
         .add_plugin(FPSPlugin)
-        .add_plugin(MousePlugin)
         .add_startup_system(build_level.system())
         // .add_startup_system(set_icon.system())
         .add_startup_system(setup.system())
+        .add_startup_system(convar_setup.system())
         .add_system(update_camera.system())
         .run();
 }
@@ -196,4 +199,8 @@ fn setup(
         .insert(Blob {
             current: Point { x: 0, y: 1 },
         });
+}
+
+fn convar_setup(mut store: ResMut<ConvarStore>) {
+    store.add("fps", Var::Toggleable(0));
 }

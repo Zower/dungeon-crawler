@@ -1,14 +1,17 @@
 //! The actual Level and LevelBuilder structs
 
-use bevy::prelude::*;
 use core::panic;
 use rand::Rng;
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 
-use super::common::{Point, ScreenPoint, Size};
-use super::tile::*;
+use super::{
+    common::{Point, ScreenPoint, Size},
+    tile::*,
+};
 use crate::logic::Direction;
+
+use bevy::prelude::*;
 
 /// Represents a single level
 #[derive(Debug)]

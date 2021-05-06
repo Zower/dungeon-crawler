@@ -5,11 +5,10 @@ use bevy::{
     prelude::*,
 };
 
+use crate::input::{ConvarStore, Var};
+
 /// The plugin representing the FPS UI element
 pub struct FPSPlugin;
-
-// Component held by the TextBundle to identify the right text.
-struct FPSText;
 
 impl Plugin for FPSPlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -19,6 +18,9 @@ impl Plugin for FPSPlugin {
             .add_system(toggle_visibility.system());
     }
 }
+
+// Component held by the TextBundle to identify the right text.
+struct FPSText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -59,12 +61,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// System that checks if the user pressed F1, and toggles the visibility accordingly.
-fn toggle_visibility(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Visible, With<FPSText>>,
-) {
+fn toggle_visibility(store: Res<ConvarStore>, mut query: Query<&mut Visible, With<FPSText>>) {
     if let Ok(mut visible) = query.single_mut() {
-        if keyboard_input.just_pressed(KeyCode::F1) {
+        // If out of sync
+        if !(visible.is_visible == (*store.get("fps").unwrap() == Var::Toggleable(1))) {
             visible.is_visible = !visible.is_visible
         }
     } else {
