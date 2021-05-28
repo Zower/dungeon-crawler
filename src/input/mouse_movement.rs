@@ -1,12 +1,14 @@
-//! Handles movement with the mouse
+//! Mouse movement.
 
 use bevy::{input::mouse::MouseButtonInput, prelude::*, window::CursorMoved};
 
 use crate::{
-    level::{Level, Point, TILE_SIZE},
+    entity::Position,
+    level::{Level, Point, WalkPath, TILE_SIZE},
     Levels, Player,
 };
 
+/// Handles moving the player with the mouse
 pub struct MouseMovementPlugin;
 
 impl Plugin for MouseMovementPlugin {
@@ -17,19 +19,23 @@ impl Plugin for MouseMovementPlugin {
     }
 }
 
+/// The latest known mouse position of the player
 struct LatestMousePosition(Vec2);
 
+/// Checks if the player pressed mouse1
+/// If they did, calculate what grid they pressed, then use A* to find the path there.
+/// Then set the players desired path equal to the A* calculation.
 fn mouse_update_grid(
-    mut query_cam: Query<(&bevy::render::camera::Camera, &Transform)>,
-    mut query_player: Query<&mut Player>,
+    mut camera_query: Query<(&bevy::render::camera::Camera, &Transform)>,
+    mut player_query: Query<(&mut WalkPath, &Position), With<Player>>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
     latest: Res<LatestMousePosition>,
     levels: Res<Levels>,
 ) {
     for event in mouse_button_input_events.iter() {
         if event.state == bevy::input::ElementState::Pressed {
-            if let Ok(mut player) = query_player.single_mut() {
-                for (cam, cam_trans) in query_cam.iter_mut() {
+            if let Ok((mut player_path, player_position)) = player_query.single_mut() {
+                for (cam, cam_trans) in camera_query.iter_mut() {
                     if cam.name == Some(String::from("Camera2d")) {
                         //                 (mouse pos  + camera current position)  / tilesize
                         let desiredx = (latest.0.x + cam_trans.translation.x) / TILE_SIZE as f32;
@@ -39,14 +45,12 @@ fn mouse_update_grid(
                             y: desiredy as i32,
                         };
 
-                        if let Some(current_level) = levels.current {
-                            let level = &levels.levels[current_level];
-                            if level.in_bounds(goal) {
-                                let goal = level.get_tile(goal).unwrap();
-                                if goal.is_safe() {
-                                    player.path.0 =
-                                        Level::a_star(&level, player.current, goal.position);
-                                }
+                        let level = levels.current();
+                        if level.in_bounds(goal) {
+                            let goal = level.get_tile(goal).unwrap();
+                            if goal.is_safe() {
+                                player_path.0 =
+                                    Level::a_star(&level, player_position.0, goal.position);
                             }
                         }
                     }

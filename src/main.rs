@@ -7,21 +7,42 @@ mod level;
 mod logic;
 mod ui;
 
-use entity::{Blob, Player};
+use entity::*;
 use input::*;
-use level::{LevelBuilder, Path, Point, Size, TileComponent};
-use logic::MovementPlugin;
+use level::{Level, LevelBuilder, Point, Size, TileComponent, WalkPath};
+use logic::{CollisionPlugin, MovementPlugin};
 use ui::*;
 
-use bevy::{input::keyboard::KeyboardInput, prelude::*, winit::WinitWindows};
+use bevy::prelude::*;
 
 /// Holds all the levels currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
 struct Levels {
-    levels: Vec<level::Level>,
-    /// Holds the index of the current level.
-    /// Could be a reference to a level instead? Avoid levels.levels.get[levels.current], unsure if this adds unnescessary complexity.
+    /// Do not modify this manually, use push() instead, otherwise current could fall out of sync
+    levels: Vec<Level>,
     current: Option<usize>,
+}
+
+impl Levels {
+    fn new() -> Self {
+        Self {
+            levels: Vec::new(),
+            current: None,
+        }
+    }
+
+    fn current(&self) -> &Level {
+        if let Some(index) = self.current {
+            &self.levels[index]
+        } else {
+            panic!("Systems are attempting to access level before creating one")
+        }
+    }
+
+    fn push(&mut self, level: Level) {
+        self.levels.push(level);
+        self.current = Some(self.levels.len() - 1);
+    }
 }
 
 fn main() {
@@ -45,25 +66,25 @@ fn main() {
             decorations: true,
         })
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        // .insert_resource(SpriteSettings {
+        //     frustum_culling_enabled: true,
+        // })
         .insert_resource(LevelBuilder::new(Size {
-            width: 7,
-            height: 7,
+            width: 10,
+            height: 10,
         }))
-        .insert_resource(Levels {
-            levels: Vec::<level::Level>::new(),
-            current: None,
-        })
-        .insert_resource(ConvarStore::new())
+        .insert_resource(Levels::new())
         .add_plugins(DefaultPlugins)
+        .add_plugin(EnemyPlugin)
         .add_plugin(KeyboardMovementPlugin)
         .add_plugin(MouseMovementPlugin)
+        .add_plugin(CollisionPlugin)
         .add_plugin(MovementPlugin)
-        .add_plugin(ConsolePlugin)
-        .add_plugin(FPSPlugin)
+        .add_plugin(UiPlugin)
+        .add_plugin(ConvarPlugin)
         .add_startup_system(build_level.system())
         // .add_startup_system(set_icon.system())
         .add_startup_system(setup.system())
-        .add_startup_system(convar_setup.system())
         .add_system(update_camera.system())
         .run();
 }
@@ -75,9 +96,6 @@ fn build_level(
     mut level_builder: ResMut<LevelBuilder>,
     mut levels: ResMut<Levels>,
 ) {
-    let current = 0;
-    levels.current = Some(current);
-
     let level = level_builder
         .add_tile(
             level::Surface::Floor,
@@ -87,7 +105,7 @@ fn build_level(
             level::Surface::Wall,
             materials.add(asset_server.load("tiles/wall.png").into()),
         )
-        .build(current)
+        .build(0)
         .unwrap();
 
     // Spawns the tiles sprites, this is never used for any logic, they are just drawn on the screen.
@@ -112,7 +130,7 @@ fn build_level(
         }
     }
 
-    levels.levels.push(level);
+    levels.push(level);
 }
 
 fn update_camera(
@@ -138,6 +156,7 @@ fn update_camera(
     }
 }
 
+// Currently broken after bevy 5.0
 // NOTE(erlend):
 // systems that access Resources run on the main thread
 // and winit_window.set_window_icon hangs(deadlock?) when it
@@ -158,49 +177,71 @@ fn update_camera(
 //     }
 // }
 
+/// Set up for the initial game state
 fn setup(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let texture_char = asset_server.load("chars/new_juniper.png");
-
     let mut camera = OrthographicCameraBundle::new_2d();
     camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
     commands.spawn_bundle(camera);
 
     commands.spawn_bundle(UiCameraBundle::default());
 
+    let texture_char = asset_server.load("chars/new_juniper.png");
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+
     // Create the player entity
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(texture_char.into()),
             transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.0),
+                translation: Vec3::new(32.0, 32.0, 1.0),
                 ..Default::default()
             },
             ..Default::default()
         })
-        .insert(Player {
-            current: Point { x: 0, y: 0 },
-            path: Path(Vec::<Point>::new()),
-        });
+        .insert(Player)
+        .insert(Position(Point { x: 1, y: 1 }))
+        .insert(WalkPath(Vec::<Point>::new()))
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(Text2dBundle {
+                    text: Text::with_section(
+                        "100",
+                        TextStyle {
+                            font,
+                            font_size: 30.0,
+                            color: Color::DARK_GREEN,
+                        },
+                        TextAlignment {
+                            vertical: VerticalAlign::Top,
+                            horizontal: HorizontalAlign::Center,
+                        },
+                    ),
+                    transform: Transform {
+                        translation: Vec3::new(0f32, 20f32, 0f32),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(HealthText);
+        })
+        .insert(Health(100));
+
     let texture_char = asset_server.load("chars/blob.png");
 
+    // Spawn the "Blob"
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(texture_char.into()),
             transform: Transform {
-                translation: Vec3::new(32.0, 0.0, 1.0),
+                translation: Vec3::new(64.0, 32.0, 1.0),
                 ..Default::default()
             },
             ..Default::default()
         })
-        .insert(Blob {
-            current: Point { x: 0, y: 1 },
-        });
-}
-
-fn convar_setup(mut store: ResMut<ConvarStore>) {
-    store.add("fps", Var::Toggleable(0));
+        .insert(Blob)
+        .insert(Position(Point { x: 2, y: 1 }));
 }

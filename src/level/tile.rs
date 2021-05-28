@@ -1,7 +1,8 @@
-pub const TILE_SIZE: i32 = 32;
-
+/// Various Tile related structures
 use super::common::{Point, ScreenPoint};
 use bevy::prelude::{ColorMaterial, Handle};
+
+pub const TILE_SIZE: i32 = 32;
 ///One tile on the grid
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Tile {
@@ -9,15 +10,9 @@ pub struct Tile {
     /// The piece's Position on the board, necessary?
     pub position: Point,
     pub screen_position: ScreenPoint,
-    // X coordinate
-    // x: i32,
-    // Y coordinate
-    // y: i32,
     /// Currently always 1, potentially some different terrain etc.
     pub cost: i32,
 }
-// Component used by tiles
-// pub struct Tile;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Surface {
@@ -32,7 +27,7 @@ pub struct TileType {
 }
 
 impl Tile {
-    /// Calculated the world position of this tile
+    /// Get the world position of this tile
     pub fn screen_position(&self) -> ScreenPoint {
         self.screen_position
     }

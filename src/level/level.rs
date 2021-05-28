@@ -1,4 +1,4 @@
-//! The actual Level and LevelBuilder structs
+//! The game Level and the LevelBuilder.
 
 use core::panic;
 use rand::Rng;
@@ -25,6 +25,7 @@ pub struct Level {
 }
 
 /// Builder structure that creates levels, will eventually hold procedural generation logic.
+
 pub struct LevelBuilder {
     /// The tiles that this builder can use
     building_tiles: Vec<TileType>,
@@ -77,6 +78,13 @@ impl LevelBuilder {
                     0 => surface = 1,
                     _ => surface = 0,
                 } // Yeah this is jank, just testing walls
+                if row == self.build_size.width - 1
+                    || row == 0
+                    || column == self.build_size.height - 1
+                    || column == 0
+                {
+                    surface = 1;
+                }
                 grid.push(Tile {
                     tile_type: TileType {
                         texture: self.building_tiles[surface].texture.clone(),
@@ -101,11 +109,6 @@ impl LevelBuilder {
 }
 
 impl Level {
-    /// Returns an iterator over the grid
-    pub fn tiles(&self) -> std::slice::Iter<'_, Tile> {
-        self.grid.iter()
-    }
-
     /// Get a reference to a piece
     /// Returns None if the point is OOB for the current level size, or values are less than 0.
     /// # Panics
@@ -212,7 +215,7 @@ impl Level {
         }
         None
     }
-    /// A* implemented from https://www.redblobgames.com/pathfinding/a-star/introduction.html
+    /// A* implemented from <https://www.redblobgames.com/pathfinding/a-star/introduction.html>
     pub fn a_star(&self, start: Point, goal: Point) -> Vec<Point> {
         let start_tile = self.get_tile(start).unwrap();
         let mut frontier = BinaryHeap::new();

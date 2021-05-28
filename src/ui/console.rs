@@ -1,6 +1,8 @@
+//! Console, press F1 to toggle
+//! The console is currently not finished, e.g. movement is still registered even if the console is open
 use bevy::prelude::*;
 
-use crate::input::ConvarStore;
+use crate::input::{Convar, ConvarChange};
 
 /// The plugin representing the Console UI element
 pub struct ConsolePlugin;
@@ -16,12 +18,12 @@ impl Plugin for ConsolePlugin {
 // Component held by the TextBundle to identify the right text.
 struct ConsoleText;
 
-/// System that checks if the user pressed F2, and toggles the visibility accordingly.
+/// System that checks if the user pressed F1, and toggles the visibility accordingly.
 fn toggle_console(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Visible, With<ConsoleText>>,
+    mut console_text_query: Query<&mut Visible, With<ConsoleText>>,
 ) {
-    if let Ok(mut visible) = query.single_mut() {
+    if let Ok(mut visible) = console_text_query.single_mut() {
         if keyboard_input.just_pressed(KeyCode::F1) {
             visible.is_visible = !visible.is_visible
         }
@@ -32,26 +34,28 @@ fn toggle_console(
 
 /// System that types what the user is writing into the second part of the console text, and attempts to set the ConVar when enter is pressed
 fn update_text(
-    mut store: ResMut<ConvarStore>,
     // Checking for literal keyboard keys, using for Enter, Backspace, etc. Trying to type * with this would just yield Lshift Key8
     key_pressed: Res<Input<KeyCode>>,
+    mut convar_changed: EventWriter<ConvarChange>,
     // Checking for characters, used to read into the text, allows for modifiers etc.
     mut char_inputs: EventReader<ReceivedCharacter>,
-    mut query: Query<(&mut Text, &mut Visible), With<ConsoleText>>,
+    mut console_text_query: Query<(&mut Text, &mut Visible), With<ConsoleText>>,
 ) {
-    if let Ok((mut text, mut visible)) = query.single_mut() {
-        // Check if its time to update the FPS
+    if let Ok((mut text, mut visible)) = console_text_query.single_mut() {
+        // Check if we're reading input right now
         if visible.is_visible {
             let prompt = &mut text.sections[1].value;
 
             for pressed_key in key_pressed.get_just_pressed() {
                 match pressed_key {
                     KeyCode::Return => {
-                        let (key, value) = ConvarStore::parse(prompt.clone()).unwrap();
-                        store.set(key.as_str(), value);
+                        if let Ok(new_value) = Convar::parse(prompt.clone()) {
+                            convar_changed.send(ConvarChange(new_value));
+                        }
                         prompt.clear();
                         visible.is_visible = false;
                     }
+
                     KeyCode::Escape => {
                         prompt.clear();
                         visible.is_visible = false;

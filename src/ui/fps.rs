@@ -1,11 +1,11 @@
-//! Plugin that prints fps at top left of screen, F1 to toggle.
+//! Prints fps at top left of screen
 
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 
-use crate::input::{ConvarStore, Var};
+use crate::input::{Convar, ConvarChange, Toggled};
 
 /// The plugin representing the FPS UI element
 pub struct FPSPlugin;
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             visible: Visible {
                 is_transparent: false,
-                is_visible: true,
+                is_visible: false,
             },
             ..Default::default()
         })
@@ -60,12 +60,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Timer::from_seconds(0.1, true));
 }
 
-/// System that checks if the user pressed F1, and toggles the visibility accordingly.
-fn toggle_visibility(store: Res<ConvarStore>, mut query: Query<&mut Visible, With<FPSText>>) {
-    if let Ok(mut visible) = query.single_mut() {
+/// System that checks if visibility should be toggled
+fn toggle_visibility(
+    mut fps_convar_changed: EventReader<ConvarChange>,
+    mut fps_text_query: Query<&mut Visible, With<FPSText>>,
+) {
+    if let Ok(mut visible) = fps_text_query.single_mut() {
         // If out of sync
-        if !(visible.is_visible == (*store.get("fps").unwrap() == Var::Toggleable(1))) {
-            visible.is_visible = !visible.is_visible
+        for event in fps_convar_changed.iter() {
+            if let ConvarChange(Convar::UiFps(new_value)) = event {
+                if *new_value == Toggled::On {
+                    visible.is_visible = true;
+                } else {
+                    visible.is_visible = false;
+                }
+            }
         }
     } else {
         warn!("FPSText UI element not found")
@@ -76,9 +85,9 @@ fn toggle_visibility(store: Res<ConvarStore>, mut query: Query<&mut Visible, Wit
 fn update_text(
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
-    mut query: Query<(&mut Text, &Visible, &mut Timer), With<FPSText>>,
+    mut fps_text_query: Query<(&mut Text, &Visible, &mut Timer), With<FPSText>>,
 ) {
-    if let Ok((mut text, visible, mut timer)) = query.single_mut() {
+    if let Ok((mut text, visible, mut timer)) = fps_text_query.single_mut() {
         // Check if its time to update the FPS
         if visible.is_visible && timer.tick(time.delta()).just_finished() {
             if let Some(diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
