@@ -1,10 +1,14 @@
 # Introduction
 
-A to be failed™ attempt at a pixel-dungeoncrawler, with turn based combat
+A learning experience into Rust, and the bevy game engine. 
+This repo hods a prototype for a pixel-dungeoncrawler, it is not ready for use. 
+Currently you can move around, and mindless enemies spawn that do nothing.
 
 # To implement
-* Enemies
-
+Combat
+Enemy logic
+Procedural generation
+...
 
 # Ubuntu build dependencies
  * libasound2-dev
