@@ -12,13 +12,9 @@ pub struct MouseMovementPlugin;
 
 impl Plugin for MouseMovementPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(LatestMousePosition(Vec2::new(0.0, 0.0)))
-            .add_system(mouse_update_grid);
+        app.add_system(mouse_update_grid);
     }
 }
-
-/// The latest known mouse position of the player
-struct LatestMousePosition(Vec2);
 
 /// Checks if the player pressed mouse1
 /// If they did, calculate what grid they pressed, then use A* to find the path there.
@@ -33,7 +29,6 @@ fn mouse_update_grid(
     for event in mouse_button_input_events.iter() {
         if event.state == bevy::input::ElementState::Pressed {
             if let Some(window) = windows.get_primary() {
-                let (mut player_path, player_position) = player_query.single_mut();
                 for (cam, cam_trans) in camera_query.iter_mut() {
                     if cam.name == Some(String::from("camera_2d")) {
                         let phys = window.physical_cursor_position().unwrap();
@@ -56,6 +51,7 @@ fn mouse_update_grid(
 
                         debug!("Registered request to move to x:{desiredx}, y:{desiredy}");
 
+                        let (mut player_path, player_position) = player_query.single_mut();
                         let level = levels.current();
                         if level.in_bounds(goal) {
                             let goal = level.get_tile(goal).unwrap();
