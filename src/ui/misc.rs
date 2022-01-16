@@ -4,8 +4,8 @@ use bevy::prelude::*;
 pub struct MiscPlugin;
 
 impl Plugin for MiscPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        app.add_system(update_health.system());
+    fn build(&self, app: &mut App) {
+        app.add_system(update_health);
     }
 }
 

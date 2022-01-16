@@ -6,7 +6,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 
 use super::{
-    common::{Point, ScreenPoint, Size},
+    common::{Point, Size},
     tile::*,
 };
 use crate::logic::Direction;
@@ -18,7 +18,7 @@ use bevy::prelude::*;
 pub struct Level {
     /// The 'number' of this level, if the player has descended 3 times, this level is number 4, etc.
     number: usize,
-    /// A list of level tiles, ALWAYS in order. E.g., (0,0), (0,1), (0,2), NOT (0,1), (0,0), (0,2)
+    /// A list of level tiles, ALWAYS in order.
     grid: Vec<Tile>,
     /// The size of the level
     pub size: Size,
@@ -27,8 +27,8 @@ pub struct Level {
 /// Builder structure that creates levels, will eventually hold procedural generation logic.
 
 pub struct LevelBuilder {
-    /// The tiles that this builder can use
-    building_tiles: Vec<TileType>,
+    /// The surfaces that this builder can use
+    building_tiles: Vec<Surface>,
     /// The size of the level to be generated.
     build_size: Size,
 }
@@ -37,7 +37,7 @@ impl LevelBuilder {
     pub fn new(build_size: Size) -> Self {
         LevelBuilder {
             build_size,
-            building_tiles: Vec::<TileType>::new(),
+            building_tiles: Vec::new(),
         }
     }
 
@@ -47,7 +47,7 @@ impl LevelBuilder {
                 width: size,
                 height: size,
             },
-            building_tiles: Vec::<TileType>::new(),
+            building_tiles: Vec::new(),
         }
     }
 
@@ -58,8 +58,8 @@ impl LevelBuilder {
     }
 
     /// Add a tile to this level, it needs a type and a texture.
-    pub fn add_tile(&mut self, surface: Surface, texture: Handle<ColorMaterial>) -> &mut Self {
-        self.building_tiles.push(TileType { texture, surface });
+    pub fn add_tile(&mut self, surface: Surface) -> &mut Self {
+        self.building_tiles.push(surface);
         self
     }
 
@@ -86,15 +86,9 @@ impl LevelBuilder {
                     surface = 1;
                 }
                 grid.push(Tile {
-                    tile_type: TileType {
-                        texture: self.building_tiles[surface].texture.clone(),
-                        surface: self.building_tiles[surface].surface,
-                    },
+                    surface: self.building_tiles[surface],
                     position: Point { x: row, y: column },
-                    screen_position: ScreenPoint(Point {
-                        x: row * TILE_SIZE,
-                        y: column * TILE_SIZE,
-                    }),
+                    screen_position: Vec2::new(row as f32 * TILE_SIZE, column as f32 * TILE_SIZE),
                     cost: 1,
                 })
             }
@@ -120,7 +114,7 @@ impl Level {
                 Some(tile)
             } else {
                 error!(
-                    "Tile position {:?} doesn't match input {:?}, panicing!",
+                    "Tile position {:?} doesn't match input {:?}",
                     tile.position, point
                 );
                 panic!()
@@ -154,47 +148,44 @@ impl Level {
     }
 
     /// Get all neighbours (4-directional) of a piece
-    pub fn get_neighbours(&self, tile: &Tile) -> Vec<&Tile> {
+    pub fn get_neighbours(&self, position: &Point) -> Vec<&Tile> {
+        debug_assert!(self.in_bounds(*position));
+
         // Check that a valid reference was passed
-        if self.grid.contains(tile) {
-            let mut neighbours = Vec::new();
-            // Left neighbour potential point
-            let mut neighbour_point = Point {
-                x: tile.position.x - 1,
-                y: tile.position.y,
-            };
+        let mut neighbours = Vec::new();
+        // Left neighbour potential point
+        let mut neighbour_point = Point {
+            x: position.x - 1,
+            y: position.y,
+        };
 
-            // Get index of the point, should always be valid so unwrap() is safe
-            if let Some(index) = self.translate(neighbour_point) {
-                // Push the neighbour to final vector.
-                neighbours.push(self.grid.get(index).unwrap());
-            }
-
-            // Changing to right neighbour
-            neighbour_point.x += 2;
-            if let Some(index) = self.translate(neighbour_point) {
-                neighbours.push(self.grid.get(index).unwrap());
-            }
-
-            // Changing to above neighbour
-            neighbour_point.x -= 1;
-            neighbour_point.y += 1;
-            if let Some(index) = self.translate(neighbour_point) {
-                neighbours.push(self.grid.get(index).unwrap());
-            }
-
-            // Changing to below neighbour
-            neighbour_point.y -= 2;
-            if let Some(index) = self.translate(neighbour_point) {
-                neighbours.push(self.grid.get(index).unwrap());
-            }
-
-            // Return valid neighbours
-            neighbours
-        } else {
-            error!("Tried to get neighbours of a Tile that is not in the grid, panicing!");
-            panic!();
+        // Get index of the point, should always be valid so unwrap() is safe
+        if let Some(index) = self.translate(neighbour_point) {
+            // Push the neighbour to final vector.
+            neighbours.push(self.grid.get(index).unwrap());
         }
+
+        // Changing to right neighbour
+        neighbour_point.x += 2;
+        if let Some(index) = self.translate(neighbour_point) {
+            neighbours.push(self.grid.get(index).unwrap());
+        }
+
+        // Changing to above neighbour
+        neighbour_point.x -= 1;
+        neighbour_point.y += 1;
+        if let Some(index) = self.translate(neighbour_point) {
+            neighbours.push(self.grid.get(index).unwrap());
+        }
+
+        // Changing to below neighbour
+        neighbour_point.y -= 2;
+        if let Some(index) = self.translate(neighbour_point) {
+            neighbours.push(self.grid.get(index).unwrap());
+        }
+
+        // Return valid neighbours
+        neighbours
     }
 }
 
@@ -217,24 +208,24 @@ impl Level {
     }
     /// A* implemented from <https://www.redblobgames.com/pathfinding/a-star/introduction.html>
     pub fn a_star(&self, start: Point, goal: Point) -> Vec<Point> {
-        let start_tile = self.get_tile(start).unwrap();
         let mut frontier = BinaryHeap::new();
+        let start_point = self.get_tile(start).unwrap().position;
         frontier.push(Reverse(TilePriority {
-            tile: start_tile,
+            point: &start_point,
             priority: 0,
         }));
 
         let mut came_from = HashMap::new();
-        came_from.insert(start_tile, start_tile); // First just points to itself
+        came_from.insert(&start_point, &start_point); // First just points to itself
 
         let mut cost_so_far = HashMap::new();
-        cost_so_far.insert(start_tile, 0);
+        cost_so_far.insert(&start_point, 0);
 
         while let Some(current) = frontier.pop() {
             // Pop returns PiecePriority, need the tile itself.
-            let current = current.0.tile;
+            let current = current.0.point;
 
-            if current.position == goal {
+            if *current == goal {
                 break;
             }
 
@@ -242,32 +233,31 @@ impl Level {
                 // Neighbour is not in came_from
                 let new_cost = cost_so_far.get(current).unwrap() + neighbour.cost;
                 // if !came_from.contains_key(neighbour) {
-                if !cost_so_far.contains_key(neighbour)
-                    || new_cost < *cost_so_far.get(neighbour).unwrap()
+                if !cost_so_far.contains_key(&neighbour.position)
+                    || new_cost < *cost_so_far.get(&neighbour.position).unwrap()
                 {
                     // Make sure its not a wall, etc.
                     if neighbour.is_safe() {
-                        cost_so_far.insert(neighbour, new_cost);
+                        cost_so_far.insert(&neighbour.position, new_cost);
                         let priority = new_cost + Level::heuristic(goal, neighbour.position);
                         frontier.push(Reverse(TilePriority {
-                            tile: neighbour,
+                            point: &neighbour.position,
                             priority,
                         }));
-                        came_from.insert(neighbour, current);
+                        came_from.insert(&neighbour.position, current);
                     }
                 }
             }
         }
 
         // Came_from now includes the correct path, that can be traced back from came_from[goal]
-
         let mut path = Vec::new();
 
-        let mut current = self.get_tile(goal).unwrap();
+        let mut current = self.get_tile(goal).unwrap().position;
 
-        while current != start_tile {
-            path.push(current.position);
-            current = came_from.get(current).unwrap();
+        while current != start_point {
+            path.push(current);
+            current = *came_from.remove(&current).unwrap();
         }
 
         path.reverse();
@@ -281,7 +271,7 @@ impl Level {
 /// A wrapper struct that can be put into a priorityqueue, prioritized by cost, so that I dont have to implement ordering on Tile.
 #[derive(Debug, PartialEq, Eq)]
 struct TilePriority<'a> {
-    tile: &'a Tile,
+    point: &'a Point,
     priority: i32,
 }
 impl<'a> Ord for TilePriority<'a> {

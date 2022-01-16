@@ -1,5 +1,6 @@
 use crate::{
-    entity::{Enemy, Health, Position},
+    entity::{Enemy, Health},
+    level::Point,
     Blob, Levels, Player, WalkPath,
 };
 
@@ -10,12 +11,12 @@ use bevy::{core::FixedTimestep, prelude::*};
 pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_stage(
             "fixed_update",
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(0.09).with_label("movement"))
-                .with_system(move_player.system()),
+                .with_system(move_player),
         );
     }
 }
@@ -24,35 +25,32 @@ impl Plugin for MovementPlugin {
 fn move_player(
     levels: Res<Levels>,
     mut query: QuerySet<(
-        Query<(&mut WalkPath, &mut Transform, &mut Position), With<Player>>,
-        Query<(&mut Transform, &mut Position), With<Blob>>,
+        QueryState<(&mut WalkPath, &mut Transform, &mut Point), With<Player>>,
+        QueryState<(&mut Transform, &mut Point), With<Blob>>,
     )>,
 ) {
-    if let Ok((mut player_path, mut player_transform, mut player_position)) =
-        query.q0_mut().single_mut()
-    {
-        let blob_x = player_transform.translation.x;
-        let blob_y = player_transform.translation.y;
-        let new_blob_position = player_position.0;
+    let mut q0 = query.q0();
+    let (mut player_path, mut player_transform, mut player_position) = q0.single_mut();
+    let blob_x = player_transform.translation.x;
+    let blob_y = player_transform.translation.y;
+    let new_blob_position = *player_position;
 
-        if !player_path.0.is_empty() {
-            let next_tile = player_path.0.remove(0);
-            let new_translation = levels
-                .current()
-                .get_tile(next_tile)
-                .unwrap()
-                .screen_position();
+    if !player_path.0.is_empty() {
+        let next_tile = player_path.0.remove(0);
+        let new_translation = levels
+            .current()
+            .get_tile(next_tile)
+            .unwrap()
+            .screen_position();
 
-            player_position.0 = next_tile;
-            player_transform.translation.x = new_translation.0.x as f32;
-            player_transform.translation.y = new_translation.0.y as f32;
+        *player_position = next_tile;
+        player_transform.translation =
+            Vec3::from((new_translation, player_transform.translation.z));
+        let mut q1 = query.q1();
+        let (mut blob_transform, mut blob_position) = q1.single_mut();
+        blob_transform.translation.x = blob_x;
+        blob_transform.translation.y = blob_y;
 
-            if let Ok((mut blob_transform, mut blob_position)) = query.q1_mut().single_mut() {
-                blob_transform.translation.x = blob_x;
-                blob_transform.translation.y = blob_y;
-
-                blob_position.0 = new_blob_position;
-            }
-        }
+        *blob_position = new_blob_position;
     }
 }

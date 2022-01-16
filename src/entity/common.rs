@@ -1,6 +1,6 @@
-use crate::level::Point;
+use bevy::prelude::Component;
 
-#[derive(Debug)]
+#[derive(Debug, Component)]
 pub struct Health(pub i32);
 
 impl Health {
@@ -12,6 +12,5 @@ impl Health {
     }
 }
 
+#[derive(Debug, Component)]
 pub struct HealthText;
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-pub struct Position(pub Point);

@@ -11,15 +11,16 @@ use crate::input::{Convar, ConvarChange, Toggled};
 pub struct FPSPlugin;
 
 impl Plugin for FPSPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin)
-            .add_startup_system(setup.system())
-            .add_system(update_text.system())
-            .add_system(toggle_visibility.system());
+            .add_startup_system(setup)
+            .add_system(update_text)
+            .add_system(toggle_visibility);
     }
 }
 
 // Component held by the TextBundle to identify the right text.
+#[derive(Debug, Component)]
 struct FPSText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -50,10 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..Default::default()
             },
-            visible: Visible {
-                is_transparent: false,
-                is_visible: false,
-            },
+            visibility: Visibility { is_visible: false },
             ..Default::default()
         })
         .insert(FPSText)
@@ -63,21 +61,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// System that checks if visibility should be toggled
 fn toggle_visibility(
     mut fps_convar_changed: EventReader<ConvarChange>,
-    mut fps_text_query: Query<&mut Visible, With<FPSText>>,
+    mut fps_text_query: Query<&mut Visibility, With<FPSText>>,
 ) {
-    if let Ok(mut visible) = fps_text_query.single_mut() {
-        // If out of sync
-        for event in fps_convar_changed.iter() {
-            if let ConvarChange(Convar::UiFps(new_value)) = event {
-                if *new_value == Toggled::On {
-                    visible.is_visible = true;
-                } else {
-                    visible.is_visible = false;
-                }
+    let mut visible = fps_text_query.single_mut();
+    // If out of sync
+    for event in fps_convar_changed.iter() {
+        if let ConvarChange(Convar::UiFps(new_value)) = event {
+            if *new_value == Toggled::On {
+                visible.is_visible = true;
+            } else {
+                visible.is_visible = false;
             }
         }
-    } else {
-        warn!("FPSText UI element not found")
     }
 }
 
@@ -85,23 +80,20 @@ fn toggle_visibility(
 fn update_text(
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
-    mut fps_text_query: Query<(&mut Text, &Visible, &mut Timer), With<FPSText>>,
+    mut fps_text_query: Query<(&mut Text, &Visibility, &mut Timer), With<FPSText>>,
 ) {
-    if let Ok((mut text, visible, mut timer)) = fps_text_query.single_mut() {
-        // Check if its time to update the FPS
-        if visible.is_visible && timer.tick(time.delta()).just_finished() {
-            if let Some(diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-                if let Some(mut value) = diagnostic.value() {
-                    if let Some(mut avg) = diagnostic.average() {
-                        value = (value as i32).into();
-                        avg = (avg as i32).into();
-                        text.sections[1].value =
-                            format!("{} ({})", &value.to_string(), &avg.to_string());
-                    }
+    let (mut text, visible, mut timer) = fps_text_query.single_mut();
+    // Check if its time to update the FPS
+    if visible.is_visible && timer.tick(time.delta()).just_finished() {
+        if let Some(diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(mut value) = diagnostic.value() {
+                if let Some(mut avg) = diagnostic.average() {
+                    value = (value as i32).into();
+                    avg = (avg as i32).into();
+                    text.sections[1].value =
+                        format!("{} ({})", &value.to_string(), &avg.to_string());
                 }
             }
         }
-    } else {
-        warn!("FPSText UI element not found")
     }
 }

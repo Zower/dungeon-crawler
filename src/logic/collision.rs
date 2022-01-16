@@ -3,17 +3,20 @@ use std::time::Duration;
 
 use bevy::{core::Timer, prelude::*};
 
-use crate::entity::{Blob, Player, Position};
+use crate::{
+    entity::{Blob, Player},
+    level::Point,
+};
 
 pub struct CollisionPlugin;
 
 impl Plugin for CollisionPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(Collisions::new())
-            // .add_system(update_all_collisions.system())
-            .add_system(register_player_collisions.system())
-            .add_system(process_all_collision_timers.system())
-            .add_system(get_player_collisions.system());
+            // .add_system(update_all_collisions)
+            .add_system(register_player_collisions)
+            .add_system(process_all_collision_timers)
+            .add_system(get_player_collisions);
     }
 }
 // fn register_all_collisions(
@@ -30,15 +33,14 @@ impl Plugin for CollisionPlugin {
 // }
 
 fn register_player_collisions(
-    player_query: Query<(Entity, &Position), With<Player>>,
-    all_ai_entities_query: Query<(Entity, &Position), (Without<Player>, Without<Blob>)>,
+    player_query: Query<(Entity, &Point), With<Player>>,
+    all_ai_entities_query: Query<(Entity, &Point), (Without<Player>, Without<Blob>)>,
     mut collisions: ResMut<Collisions>,
 ) {
-    if let Ok((player, player_position)) = player_query.single() {
-        for (other, other_position) in all_ai_entities_query.iter() {
-            if player_position == other_position {
-                collisions.try_add(player, other);
-            }
+    let (player, player_position) = player_query.single();
+    for (other, other_position) in all_ai_entities_query.iter() {
+        if player_position == other_position {
+            collisions.try_add(player, other);
         }
     }
 }
@@ -47,12 +49,11 @@ fn get_player_collisions(
     player_query: Query<Entity, With<Player>>,
     mut collisions: ResMut<Collisions>,
 ) {
-    if let Ok(entity) = player_query.single() {
-        let with = collisions.colliding_with(entity);
-        if !with.is_empty() {
-            println!("{:?}", "collided!");
-            println!("{:?}", with);
-        }
+    let player = player_query.single();
+    let with = collisions.colliding_with(player);
+    if !with.is_empty() {
+        println!("{:?}", "collided!");
+        println!("{:?}", with);
     }
 }
 

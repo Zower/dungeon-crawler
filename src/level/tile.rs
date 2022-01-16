@@ -1,15 +1,18 @@
 /// Various Tile related structures
-use super::common::{Point, ScreenPoint};
-use bevy::prelude::{ColorMaterial, Handle};
+use super::common::Point;
+use bevy::{
+    math::Vec2,
+    prelude::{Component, Handle, Image},
+};
 
-pub const TILE_SIZE: i32 = 32;
+pub const TILE_SIZE: f32 = 32.0;
 ///One tile on the grid
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq)]
 pub struct Tile {
-    pub tile_type: TileType,
+    pub surface: Surface,
     /// The piece's Position on the board, necessary?
     pub position: Point,
-    pub screen_position: ScreenPoint,
+    pub screen_position: Vec2,
     /// Currently always 1, potentially some different terrain etc.
     pub cost: i32,
 }
@@ -19,16 +22,16 @@ pub enum Surface {
     Floor,
     Wall,
 }
-/// Contains the texture to be used by bevy, and a type
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct TileType {
-    pub texture: Handle<ColorMaterial>,
-    pub surface: Surface,
-}
+// /// Contains the texture to be used by bevy, and a type
+// #[derive(Debug, PartialEq, Eq, Hash)]
+// pub struct TileType {
+//     pub texture: Handle<Image>,
+//     pub surface: Surface,
+// }
 
 impl Tile {
     /// Get the world position of this tile
-    pub fn screen_position(&self) -> ScreenPoint {
+    pub fn screen_position(&self) -> Vec2 {
         self.screen_position
     }
 
@@ -37,9 +40,10 @@ impl Tile {
     }
 
     pub fn is_wall(&self) -> bool {
-        self.tile_type.surface == Surface::Wall
+        self.surface == Surface::Wall
     }
 }
 
 /// A component that can be used to identify tiles in the ECS.
+#[derive(Debug, Component)]
 pub struct TileComponent;

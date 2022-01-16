@@ -8,27 +8,25 @@ use crate::input::{Convar, ConvarChange};
 pub struct ConsolePlugin;
 
 impl Plugin for ConsolePlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system(setup.system())
-            .add_system(update_text.system())
-            .add_system(toggle_console.system());
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(setup)
+            .add_system(update_text)
+            .add_system(toggle_console);
     }
 }
 
 // Component held by the TextBundle to identify the right text.
+#[derive(Debug, Component)]
 struct ConsoleText;
 
 /// System that checks if the user pressed F1, and toggles the visibility accordingly.
 fn toggle_console(
     keyboard_input: Res<Input<KeyCode>>,
-    mut console_text_query: Query<&mut Visible, With<ConsoleText>>,
+    mut console_text_query: Query<&mut Visibility, With<ConsoleText>>,
 ) {
-    if let Ok(mut visible) = console_text_query.single_mut() {
-        if keyboard_input.just_pressed(KeyCode::F1) {
-            visible.is_visible = !visible.is_visible
-        }
-    } else {
-        warn!("ConsoleText UI element not found");
+    let mut visible = console_text_query.single_mut();
+    if keyboard_input.just_pressed(KeyCode::F1) {
+        visible.is_visible = !visible.is_visible
     }
 }
 
@@ -39,40 +37,37 @@ fn update_text(
     mut convar_changed: EventWriter<ConvarChange>,
     // Checking for characters, used to read into the text, allows for modifiers etc.
     mut char_inputs: EventReader<ReceivedCharacter>,
-    mut console_text_query: Query<(&mut Text, &mut Visible), With<ConsoleText>>,
+    mut console_text_query: Query<(&mut Text, &mut Visibility), With<ConsoleText>>,
 ) {
-    if let Ok((mut text, mut visible)) = console_text_query.single_mut() {
-        // Check if we're reading input right now
-        if visible.is_visible {
-            let prompt = &mut text.sections[1].value;
+    let (mut text, mut visible) = console_text_query.single_mut();
+    // Check if we're reading input right now
+    if visible.is_visible {
+        let prompt = &mut text.sections[1].value;
 
-            for pressed_key in key_pressed.get_just_pressed() {
-                match pressed_key {
-                    KeyCode::Return => {
-                        if let Ok(new_value) = Convar::parse(prompt.clone()) {
-                            convar_changed.send(ConvarChange(new_value));
-                        }
-                        prompt.clear();
-                        visible.is_visible = false;
+        for pressed_key in key_pressed.get_just_pressed() {
+            match pressed_key {
+                KeyCode::Return => {
+                    if let Ok(new_value) = Convar::parse(prompt.clone()) {
+                        convar_changed.send(ConvarChange(new_value));
                     }
+                    prompt.clear();
+                    visible.is_visible = false;
+                }
 
-                    KeyCode::Escape => {
-                        prompt.clear();
-                        visible.is_visible = false;
-                    }
-                    KeyCode::Back => {
-                        prompt.pop();
-                    }
-                    _ => {
-                        for pressed_char in char_inputs.iter() {
-                            *prompt = format!("{}{}", prompt, pressed_char.char);
-                        }
+                KeyCode::Escape => {
+                    prompt.clear();
+                    visible.is_visible = false;
+                }
+                KeyCode::Back => {
+                    prompt.pop();
+                }
+                _ => {
+                    for pressed_char in char_inputs.iter() {
+                        *prompt = format!("{}{}", prompt, pressed_char.char);
                     }
                 }
             }
         }
-    } else {
-        warn!("FPSText UI element not found")
     }
 }
 
@@ -110,10 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..Default::default()
             },
-            visible: Visible {
-                is_transparent: false,
-                is_visible: false,
-            },
+            visibility: Visibility { is_visible: false },
             ..Default::default()
         })
         .insert(ConsoleText);

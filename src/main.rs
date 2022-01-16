@@ -9,7 +9,7 @@ mod ui;
 
 use entity::*;
 use input::*;
-use level::{Level, LevelBuilder, Point, Size, TileComponent, WalkPath};
+use level::{Level, LevelBuilder, Point, Size, Surface, TileComponent, WalkPath};
 use logic::{CollisionPlugin, MovementPlugin};
 use ui::*;
 
@@ -46,13 +46,15 @@ impl Levels {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             title: "Game".to_string(),
             width: 800f32,
             height: 600f32,
             vsync: false,
             resizable: true,
+            transparent: false,
+            position: None,
             resize_constraints: bevy::window::WindowResizeConstraints {
                 min_width: 800f32,
                 max_width: 800f32,
@@ -96,15 +98,12 @@ fn build_level(
     mut level_builder: ResMut<LevelBuilder>,
     mut levels: ResMut<Levels>,
 ) {
+    let floor = asset_server.load("tiles/floor.png");
+    let wall = asset_server.load("tiles/wall.png");
+
     let level = level_builder
-        .add_tile(
-            level::Surface::Floor,
-            materials.add(asset_server.load("tiles/floor.png").into()),
-        )
-        .add_tile(
-            level::Surface::Wall,
-            materials.add(asset_server.load("tiles/wall.png").into()),
-        )
+        .add_tile(Surface::Floor)
+        .add_tile(Surface::Wall)
         .build(0)
         .unwrap();
 
@@ -115,13 +114,14 @@ fn build_level(
             let screen_position = tile.screen_position();
             commands
                 .spawn_bundle(SpriteBundle {
-                    material: tile.tile_type.texture.clone(),
+                    texture: if tile.surface == Surface::Wall {
+                        wall.clone()
+                    } else {
+                        floor.clone()
+                    },
+                    // material: tile.tile_type.texture.clone(),
                     transform: Transform {
-                        translation: Vec3::new(
-                            screen_position.0.x as f32,
-                            screen_position.0.y as f32,
-                            0f32,
-                        ),
+                        translation: Vec3::new(screen_position.x, screen_position.y, 0f32),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -135,20 +135,23 @@ fn build_level(
 
 fn update_camera(
     mut query: QuerySet<(
-        Query<(&bevy::render::camera::Camera, &mut Transform)>,
-        Query<(&Transform, With<Player>)>,
+        QueryState<(&Transform, With<Player>)>,
+        QueryState<(&bevy::render::camera::Camera, &mut Transform)>,
     )>,
 ) {
     // Can't borrow q at the same time, so need to remember values
     let mut new_x = 0.0;
     let mut new_y = 0.0;
 
+    let mut q0 = query.q0();
     // No idea what the second value means, maybe if With<Player> is satisifed?
-    for (ply_pos, _) in query.q1_mut().iter_mut() {
+    for (ply_pos, _) in q0.iter_mut() {
         new_x = ply_pos.translation.x;
         new_y = ply_pos.translation.y;
     }
-    for (camera, mut transform) in query.q0_mut().iter_mut() {
+
+    let mut q1 = query.q1();
+    for (camera, mut transform) in q1.iter_mut() {
         if camera.name == Some(String::from("Camera2d")) {
             transform.translation.x = new_x;
             transform.translation.y = new_y;
@@ -189,13 +192,13 @@ fn setup(
 
     commands.spawn_bundle(UiCameraBundle::default());
 
-    let texture_char = asset_server.load("chars/new_juniper.png");
+    // let texture_char = asset_server.load("chars/new_juniper.png");
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     // Create the player entity
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(texture_char.into()),
+            // material: materials.add(texture_char.into()),
             transform: Transform {
                 translation: Vec3::new(32.0, 32.0, 1.0),
                 ..Default::default()
@@ -203,7 +206,7 @@ fn setup(
             ..Default::default()
         })
         .insert(Player)
-        .insert(Position(Point { x: 1, y: 1 }))
+        .insert(Point::new(1, 1))
         .insert(WalkPath(Vec::<Point>::new()))
         .with_children(|parent| {
             parent
@@ -230,12 +233,11 @@ fn setup(
         })
         .insert(Health(100));
 
-    let texture_char = asset_server.load("chars/blob.png");
-
     // Spawn the "Blob"
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(texture_char.into()),
+            texture: asset_server.load("chars/blob.png"),
+            // material: materials.add(texture_char.into()),
             transform: Transform {
                 translation: Vec3::new(64.0, 32.0, 1.0),
                 ..Default::default()
@@ -243,5 +245,5 @@ fn setup(
             ..Default::default()
         })
         .insert(Blob)
-        .insert(Position(Point { x: 2, y: 1 }));
+        .insert(Point::new(2, 1));
 }

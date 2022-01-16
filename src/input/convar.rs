@@ -6,7 +6,7 @@ use bevy::prelude::*;
 pub struct ConvarPlugin;
 
 impl Plugin for ConvarPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_event::<ConvarChange>();
     }
 }

@@ -8,30 +8,30 @@ use crate::{
 
 use rand::Rng;
 
-use super::{Health, Position};
+use super::Health;
 
 /// Just a small test, adds enemies ever so often and moves them around.
 pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_stage(
             "fixed_enemy_update",
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(0.36).with_label("movement"))
-                .with_system(move_enemies.system()),
+                .with_system(move_enemies),
         )
         .insert_resource(SpawnEnemyTimer(Timer::from_seconds(10f32, true)))
         .insert_resource(DamageEnemyTimer(Timer::from_seconds(10f32, true)))
-        .add_system(spawn_enemies.system())
-        .add_system(damage_enemies.system());
+        .add_system(spawn_enemies)
+        .add_system(damage_enemies);
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Component, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Enemy;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Component)]
 pub struct LastDirection(Direction);
 
 pub struct SpawnEnemyTimer(Timer);
@@ -65,27 +65,24 @@ fn spawn_enemies(
         let pos_x = rand::thread_rng().gen_range(1..level.size.width - 1);
         let pos_y = rand::thread_rng().gen_range(1..level.size.height - 1);
 
-        let pos = Position(Point { x: pos_x, y: pos_y });
+        let pos = Vec2::new(pos_x as f32, pos_y as f32);
 
-        let texture_char = asset_server.load("chars/blob.png");
+        // let texture_char = asset_server.load("chars/blob.png");
 
-        println!("Spawning enemy at {:?}", pos.0);
+        println!("Spawning enemy at {:?}", pos);
 
         commands
             .spawn_bundle(SpriteBundle {
-                material: materials.add(texture_char.into()),
+                // material: materials.add(texture_char.into()),
+                texture: asset_server.load("chars/blob.png"),
                 transform: Transform {
-                    translation: Vec3::new(
-                        (pos.0.x * TILE_SIZE) as f32,
-                        (pos.0.y * TILE_SIZE) as f32,
-                        1.0,
-                    ),
+                    translation: Vec3::from((pos, 1.0)),
                     ..Default::default()
                 },
                 ..Default::default()
             })
             .insert(Enemy)
-            .insert(pos)
+            .insert(Point::new(pos_x, pos_y))
             .insert(LastDirection(Direction::Still))
             .insert(Health(100));
     }
@@ -117,21 +114,21 @@ fn damage_enemies(
 
 fn move_enemies(
     levels: Res<Levels>,
-    mut enemies_query: Query<(&mut LastDirection, &mut Transform, &mut Position), With<Enemy>>,
+    mut enemies_query: Query<(&mut LastDirection, &mut Transform, &mut Point), With<Enemy>>,
 ) {
     // Stuff that's happening here no good, me fix later :D
-    for (mut last_direction, mut transform, mut position) in enemies_query.iter_mut() {
+    for (mut last_direction, mut transform, mut point) in enemies_query.iter_mut() {
         let new_direction = Enemy::next_direction(last_direction.0);
         last_direction.0 = new_direction;
         let level = levels.current();
         let next_tile = level
-            .get_neighbour(level.get_tile(position.0).unwrap(), new_direction)
+            .get_neighbour(level.get_tile(*point).unwrap(), new_direction)
             .unwrap();
 
         let new_transform = next_tile.screen_position();
 
-        transform.translation = Vec3::new(new_transform.0.x as f32, new_transform.0.y as f32, 1.0);
+        transform.translation = Vec3::new(new_transform.x as f32, new_transform.y as f32, 1.0);
 
-        position.0 = next_tile.position;
+        *point = next_tile.position;
     }
 }
