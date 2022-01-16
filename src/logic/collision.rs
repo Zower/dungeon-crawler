@@ -52,8 +52,7 @@ fn get_player_collisions(
     let player = player_query.single();
     let with = collisions.colliding_with(player);
     if !with.is_empty() {
-        println!("{:?}", "collided!");
-        println!("{:?}", with);
+        debug!("Player collided with {with:?}");
     }
 }
 

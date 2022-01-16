@@ -54,15 +54,12 @@ fn spawn_enemies(
     mut timer: ResMut<SpawnEnemyTimer>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        println!("{:?}", "10 seconds elapsed");
         let level = levels.current();
 
         let pos_x = rand::thread_rng().gen_range(1..level.size.width - 1);
         let pos_y = rand::thread_rng().gen_range(1..level.size.height - 1);
 
         let pos = Vec2::new(pos_x as f32, pos_y as f32);
-
-        println!("Spawning enemy at {:?}", pos);
 
         commands
             .spawn_bundle(SpriteBundle {
@@ -88,16 +85,14 @@ fn damage_enemies(
 ) {
     if timer.0.tick(time.delta()).just_finished() {
         for (entity, mut enemy_hp) in enemies_query.iter_mut() {
-            println!(
-                "Damaging entity: {:?}, with current hp: {:?}, new hp: {:?}",
-                entity,
-                enemy_hp.0,
+            debug!(
+                "Damaging entity: {entity:?}, with current hp: {enemy_hp:?}, new hp: {:?}",
                 enemy_hp.0 - 50
             );
 
             enemy_hp.0 -= 50;
             if enemy_hp.0 <= 0 {
-                println!("{:?}", "killing that entity.");
+                debug!("Killing entity: {entity:?}");
                 commands.entity(entity).despawn();
             }
         }

@@ -77,7 +77,7 @@ fn main() {
         }))
         .insert_resource(Levels::new())
         .add_plugins(DefaultPlugins)
-        .add_plugin(EnemyPlugin)
+        // .add_plugin(EnemyPlugin)
         .add_plugin(KeyboardMovementPlugin)
         .add_plugin(MouseMovementPlugin)
         .add_plugin(CollisionPlugin)
@@ -194,6 +194,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(SpriteBundle {
             // material: materials.add(texture_char.into()),
+            texture: asset_server.load("chars/new_juniper.png"),
             transform: Transform {
                 translation: Vec3::new(32.0, 32.0, 1.0),
                 ..Default::default()
