@@ -93,7 +93,6 @@ fn main() {
 
 fn build_level(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
     mut level_builder: ResMut<LevelBuilder>,
     mut levels: ResMut<Levels>,
@@ -181,11 +180,7 @@ fn update_camera(
 // }
 
 /// Set up for the initial game state
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut camera = OrthographicCameraBundle::new_2d();
     camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
     commands.spawn_bundle(camera);

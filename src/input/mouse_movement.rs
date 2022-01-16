@@ -33,9 +33,12 @@ fn mouse_update_grid(
 ) {
     for event in mouse_button_input_events.iter() {
         if event.state == bevy::input::ElementState::Pressed {
+            println!("1");
             let (mut player_path, player_position) = player_query.single_mut();
             for (cam, cam_trans) in camera_query.iter_mut() {
-                if cam.name == Some(String::from("Camera2d")) {
+                println!("{cam:?}");
+                if cam.name == Some(String::from("camera_2d")) {
+                    println!("2");
                     //                 (mouse pos  + camera current position)  / tilesize
                     let desiredx = (latest.0.x + cam_trans.translation.x) / TILE_SIZE as f32;
                     let desiredy = (latest.0.y + cam_trans.translation.y) / TILE_SIZE as f32;
@@ -46,9 +49,12 @@ fn mouse_update_grid(
 
                     let level = levels.current();
                     if level.in_bounds(goal) {
+                        println!("3");
                         let goal = level.get_tile(goal).unwrap();
                         if goal.is_safe() {
+                            println!("4");
                             player_path.0 = Level::a_star(&level, *player_position, goal.position);
+                            println!("{player_path:?}");
                         }
                     }
                 }

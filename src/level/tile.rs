@@ -1,9 +1,6 @@
 /// Various Tile related structures
 use super::common::Point;
-use bevy::{
-    math::Vec2,
-    prelude::{Component, Handle, Image},
-};
+use bevy::{math::Vec2, prelude::Component};
 
 pub const TILE_SIZE: f32 = 32.0;
 ///One tile on the grid

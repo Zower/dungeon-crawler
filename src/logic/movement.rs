@@ -1,8 +1,4 @@
-use crate::{
-    entity::{Enemy, Health},
-    level::Point,
-    Blob, Levels, Player, WalkPath,
-};
+use crate::{level::Point, Blob, Levels, Player, WalkPath};
 
 use bevy::{core::FixedTimestep, prelude::*};
 
@@ -31,11 +27,12 @@ fn move_player(
 ) {
     let mut q0 = query.q0();
     let (mut player_path, mut player_transform, mut player_position) = q0.single_mut();
-    let blob_x = player_transform.translation.x;
-    let blob_y = player_transform.translation.y;
-    let new_blob_position = *player_position;
 
     if !player_path.0.is_empty() {
+        let blob_x = player_transform.translation.x;
+        let blob_y = player_transform.translation.y;
+        let new_blob_position = *player_position;
+
         let next_tile = player_path.0.remove(0);
         let new_translation = levels
             .current()

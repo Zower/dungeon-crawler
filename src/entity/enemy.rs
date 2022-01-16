@@ -1,10 +1,6 @@
 use bevy::{core::FixedTimestep, prelude::*};
 
-use crate::{
-    level::{Point, TILE_SIZE},
-    logic::Direction,
-    Levels,
-};
+use crate::{level::Point, logic::Direction, Levels};
 
 use rand::Rng;
 
@@ -56,7 +52,6 @@ fn spawn_enemies(
     asset_server: Res<AssetServer>,
     levels: Res<Levels>,
     mut timer: ResMut<SpawnEnemyTimer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
         println!("{:?}", "10 seconds elapsed");
@@ -67,13 +62,10 @@ fn spawn_enemies(
 
         let pos = Vec2::new(pos_x as f32, pos_y as f32);
 
-        // let texture_char = asset_server.load("chars/blob.png");
-
         println!("Spawning enemy at {:?}", pos);
 
         commands
             .spawn_bundle(SpriteBundle {
-                // material: materials.add(texture_char.into()),
                 texture: asset_server.load("chars/blob.png"),
                 transform: Transform {
                     translation: Vec3::from((pos, 1.0)),

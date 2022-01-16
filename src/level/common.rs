@@ -30,7 +30,7 @@ impl Size {
     }
 }
 
-/// A path to walk, this should always be a valid path as there is no validity-checking when moving an entity based on this path. Could be a reference of Points?
+/// A path to walk, this should always be a valid path as there is no validity-checking when moving an entity based on this path.
 /// The first element is the next piece, NOT current, last is the goal
 #[derive(Debug, Component)]
 pub struct WalkPath(pub Vec<Point>);
