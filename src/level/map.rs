@@ -1,9 +1,10 @@
-//! The game Level and the LevelBuilder.
+//! The game is played on a 'level', consisting of a set number of randomly generated maps.
 
 use core::panic;
 use rand::Rng;
-use std::cmp::{Ordering, Reverse};
+use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
+use std::ops::Range;
 
 use super::{
     common::{Point, Size},
@@ -11,14 +12,16 @@ use super::{
 };
 use crate::logic::Direction;
 
+use super::rect::Rect;
+
 use bevy::prelude::*;
 
 /// Represents a single level
 #[derive(Debug)]
-pub struct Level {
-    /// The 'number' of this level, if the player has descended 3 times, this level is number 4, etc.
-    number: usize,
-    /// A list of level tiles, ALWAYS in order.
+pub struct Map {
+    /// The depth of this level, if the player has descended 3 times, this level is number 4, etc.
+    depth: usize,
+    /// A list of level tiles, in order.
     grid: Vec<Tile>,
     /// The size of the level
     pub size: Size,
@@ -26,99 +29,127 @@ pub struct Level {
 
 /// Builder structure that creates levels, will eventually hold procedural generation logic.
 
-pub struct LevelBuilder {
-    /// The surfaces that this builder can use
-    building_tiles: Vec<Surface>,
-    /// The size of the level to be generated.
-    build_size: Size,
+pub struct MapBuilder {
+    /// The size of the map to be generated.
+    map_size: Size,
+    /// Number of rooms that can be generated.
+    nr_rooms: i32,
+    /// How big rooms can be.
+    room_size_range_x: Range<i32>,
+    /// How big rooms can be.
+    room_size_range_y: Range<i32>,
+    /// The depth of this level.
+    depth: usize,
 }
 
-impl LevelBuilder {
-    pub fn new(build_size: Size) -> Self {
-        LevelBuilder {
-            build_size,
-            building_tiles: Vec::new(),
-        }
+impl MapBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn square(size: i32) -> Self {
-        LevelBuilder {
-            build_size: Size {
-                width: size,
-                height: size,
-            },
-            building_tiles: Vec::new(),
+        Self {
+            map_size: Size::splat(size),
+            ..Default::default()
         }
     }
 
-    /// Set the build_size of this builder
+    /// Set the map size
     pub fn size(&mut self, size: Size) -> &mut Self {
-        self.build_size = size;
+        self.map_size = size;
         self
     }
 
-    /// Add a tile to this level, it needs a type and a texture.
-    pub fn add_tile(&mut self, surface: Surface) -> &mut Self {
-        self.building_tiles.push(surface);
+    /// Sets depth of level.
+    pub fn depth(&mut self, depth: usize) -> &mut Self {
+        self.depth = depth;
         self
     }
 
-    pub fn build(&self, number: usize) -> Result<Level, Box<dyn std::error::Error>> {
-        if self.building_tiles.len() == 0 {
-            return Err(Box::new(EmptyTextureError));
-        }
+    pub fn nr_rooms(&mut self, amount: i32) -> &mut Self {
+        self.nr_rooms = amount;
+        self
+    }
 
-        let mut grid = Vec::new();
-        let mut rng = rand::thread_rng();
+    /// Sets possible size of rooms.
+    pub fn room_size(&mut self, x: Range<i32>, y: Range<i32>) -> &mut Self {
+        self.room_size_range_x = x;
+        self.room_size_range_y = y;
+        self
+    }
 
-        for row in 0..self.build_size.width {
-            for column in 0..self.build_size.height {
-                let mut surface = rng.gen_range(0..11);
-                match surface {
-                    0 => surface = 1,
-                    _ => surface = 0,
-                } // Yeah this is jank, just testing walls
-                if row == self.build_size.width - 1
-                    || row == 0
-                    || column == self.build_size.height - 1
-                    || column == 0
-                {
-                    surface = 1;
-                }
-                grid.push(Tile {
-                    surface: self.building_tiles[surface],
-                    position: Point { x: row, y: column },
-                    screen_position: Vec2::new(row as f32 * TILE_SIZE, column as f32 * TILE_SIZE),
-                    cost: 1,
-                })
+    /// Build a random map.
+    pub fn build(&self) -> (Map, Vec<Rect>) {
+        let mut map = Map {
+            depth: self.depth,
+            grid: Vec::with_capacity((self.map_size.width * self.map_size.height) as usize),
+            size: self.map_size,
+        };
+
+        debug!(
+            "Generating map with size: x: {:?}, y: {:?}",
+            self.map_size.width, self.map_size.height
+        );
+
+        for x in 0..self.map_size.width {
+            for y in 0..self.map_size.height {
+                map.grid.push(Tile::new(Surface::Wall, Point::new(x, y)));
             }
         }
 
-        Ok(Level {
-            grid,
-            size: self.build_size,
-            number,
-        })
+        let mut rng = rand::thread_rng();
+        let mut rooms: Vec<Rect> = Vec::new();
+
+        for _ in 1..=self.nr_rooms {
+            let w = rng.gen_range(self.room_size_range_x.clone());
+            let h = rng.gen_range(self.room_size_range_y.clone());
+            let x = rng.gen_range(1..self.map_size.width - w - 1);
+            let y = rng.gen_range(1..self.map_size.height - h - 1);
+
+            let new_room = Rect::new(x, y, w, h);
+            let mut ok = true;
+            for other_room in rooms.iter() {
+                if new_room.intersect(other_room) {
+                    ok = false
+                }
+            }
+            if ok {
+                debug!("Creating room: {new_room:?}");
+                for x in new_room.x1..=new_room.x2 {
+                    for y in new_room.y1..=new_room.y2 {
+                        map.grid[Map::xy_idx(Point::new(x, y), self.map_size.width)].surface =
+                            Surface::Floor;
+                    }
+                }
+
+                if !rooms.is_empty() {
+                    let new_point = new_room.center();
+                    let prev_point = rooms[rooms.len() - 1].center();
+                    if rng.gen_range(0..2) == 1i32 {
+                        map.apply_horizontal_tunnel(prev_point.x, new_point.x, prev_point.y);
+                        map.apply_vertical_tunnel(prev_point.y, new_point.y, new_point.x);
+                    } else {
+                        map.apply_vertical_tunnel(prev_point.y, new_point.y, prev_point.x);
+                        map.apply_horizontal_tunnel(prev_point.x, new_point.x, new_point.y);
+                    }
+                }
+
+                rooms.push(new_room);
+            }
+        }
+
+        (map, rooms)
     }
 }
 
-impl Level {
+impl Map {
     /// Get a reference to a piece
     /// Returns None if the point is OOB for the current level size, or values are less than 0.
     /// # Panics
     /// Panics if the tile position doesnt match the input.
     pub fn get_tile(&self, point: Point) -> Option<&Tile> {
         if let Some(index) = self.translate(point) {
-            let tile = self.grid.get(index).unwrap();
-            if tile.position.x == point.x && tile.position.y == point.y {
-                Some(tile)
-            } else {
-                error!(
-                    "Tile position {:?} doesn't match input {:?}",
-                    tile.position, point
-                );
-                panic!()
-            }
+            self.grid.get(index)
         } else {
             None
         }
@@ -190,7 +221,24 @@ impl Level {
 }
 
 // More utility focused implementations
-impl Level {
+impl Map {
+    pub fn apply_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
+        for x in min(x1, x2)..=max(x1, x2) {
+            let idx = Map::xy_idx(Point::new(x, y), self.size.height);
+            if idx > 0 && idx < 80 * 50 {
+                self.grid[idx as usize].surface = Surface::Floor;
+            }
+        }
+    }
+
+    pub fn apply_vertical_tunnel(&mut self, y1: i32, y2: i32, x: i32) {
+        for y in min(y1, y2)..=max(y1, y2) {
+            let idx = Map::xy_idx(Point::new(x, y), self.size.height);
+            if idx > 0 && idx < 80 * 50 {
+                self.grid[idx as usize].surface = Surface::Floor;
+            }
+        }
+    }
     pub fn in_bounds(&self, point: Point) -> bool {
         point.x < self.size.width && point.y < self.size.height && point.x >= 0 && point.y >= 0
     }
@@ -199,13 +247,15 @@ impl Level {
     /// Returns None if the point is OOB.
     pub fn translate(&self, point: Point) -> Option<usize> {
         if self.in_bounds(point) {
-            let mut index = point.x * self.size.height;
-            index += point.y;
-
-            return Some(index as usize);
+            return Some(Self::xy_idx(point, self.size.height));
         }
         None
     }
+
+    pub fn xy_idx(point: Point, height: i32) -> usize {
+        (point.x * height + point.y) as usize
+    }
+
     /// A* implemented from <https://www.redblobgames.com/pathfinding/a-star/introduction.html>
     pub fn a_star(&self, start: Point, goal: Point) -> Vec<Point> {
         let mut frontier = BinaryHeap::new();
@@ -239,7 +289,7 @@ impl Level {
                     // Make sure its not a wall, etc.
                     if neighbour.is_safe() {
                         cost_so_far.insert(&neighbour.position, new_cost);
-                        let priority = new_cost + Level::heuristic(goal, neighbour.position);
+                        let priority = new_cost + Map::heuristic(goal, neighbour.position);
                         frontier.push(Reverse(TilePriority {
                             point: &neighbour.position,
                             priority,
@@ -264,10 +314,24 @@ impl Level {
 
         path
     }
+
     fn heuristic(a: Point, b: Point) -> i32 {
         i32::abs(a.x - b.x) + i32::abs(a.y - b.y)
     }
 }
+
+impl Default for MapBuilder {
+    fn default() -> Self {
+        Self {
+            map_size: Size::splat(50),
+            nr_rooms: 25,
+            room_size_range_x: 4..10,
+            room_size_range_y: 2..8,
+            depth: 0,
+        }
+    }
+}
+
 /// A wrapper struct that can be put into a priorityqueue, prioritized by cost, so that I dont have to implement ordering on Tile.
 #[derive(Debug, PartialEq, Eq)]
 struct TilePriority<'a> {
@@ -285,14 +349,3 @@ impl<'a> PartialOrd for TilePriority<'a> {
         Some(self.cmp(other))
     }
 }
-
-#[derive(Debug)]
-pub struct EmptyTextureError;
-
-impl std::fmt::Display for EmptyTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Tried to build with no textures set!")
-    }
-}
-
-impl std::error::Error for EmptyTextureError {}

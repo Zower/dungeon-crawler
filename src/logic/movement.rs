@@ -1,4 +1,4 @@
-use crate::{level::Point, Blob, Levels, Player, WalkPath};
+use crate::{level::Point, Blob, Level, Player, WalkPath};
 
 use bevy::{core::FixedTimestep, prelude::*};
 
@@ -19,7 +19,7 @@ impl Plugin for MovementPlugin {
 
 /// Moves player one tile, if requested
 fn move_player(
-    levels: Res<Levels>,
+    levels: Res<Level>,
     mut query: QuerySet<(
         QueryState<(&mut WalkPath, &mut Transform, &mut Point), With<Player>>,
         QueryState<(&mut Transform, &mut Point), With<Blob>>,
@@ -35,7 +35,7 @@ fn move_player(
 
         let next_tile = player_path.0.remove(0);
         let new_translation = levels
-            .current()
+            .get_current()
             .get_tile(next_tile)
             .unwrap()
             .screen_position();

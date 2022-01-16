@@ -9,39 +9,34 @@ mod ui;
 
 use entity::*;
 use input::*;
-use level::{Level, LevelBuilder, Point, Size, Surface, TileComponent, WalkPath};
+use level::{Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath, TILE_SIZE};
 use logic::{CollisionPlugin, MovementPlugin};
+use rand::Rng;
 use ui::*;
 
 use bevy::prelude::*;
 
-/// Holds all the levels currently generated. The 0th element is the starting level, and as the player descends the index increases.
+/// Holds all the maps currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
-struct Levels {
-    /// Do not modify this manually, use push() instead, otherwise current could fall out of sync
-    levels: Vec<Level>,
-    current: Option<usize>,
+struct Level {
+    maps: Vec<Map>,
+    current_map: usize,
 }
 
-impl Levels {
-    fn new() -> Self {
+impl Level {
+    fn new(map: Map) -> Self {
         Self {
-            levels: Vec::new(),
-            current: None,
+            maps: vec![map],
+            current_map: 0,
         }
     }
 
-    fn current(&self) -> &Level {
-        if let Some(index) = self.current {
-            &self.levels[index]
-        } else {
-            panic!("Systems are attempting to access level before creating one")
-        }
+    fn get_current(&self) -> &Map {
+        &self.maps[self.current_map]
     }
 
-    fn push(&mut self, level: Level) {
-        self.levels.push(level);
-        self.current = Some(self.levels.len() - 1);
+    fn push(&mut self, map: Map) {
+        self.maps.push(map);
     }
 }
 
@@ -56,10 +51,10 @@ fn main() {
             transparent: false,
             position: None,
             resize_constraints: bevy::window::WindowResizeConstraints {
-                min_width: 800f32,
-                max_width: 800f32,
-                min_height: 600f32,
-                max_height: 600f32,
+                min_width: 50f32,
+                max_width: 1920f32,
+                min_height: 50f32,
+                max_height: 1080f32,
             },
             scale_factor_override: None,
             mode: bevy::window::WindowMode::Windowed,
@@ -71,11 +66,6 @@ fn main() {
         // .insert_resource(SpriteSettings {
         //     frustum_culling_enabled: true,
         // })
-        .insert_resource(LevelBuilder::new(Size {
-            width: 10,
-            height: 10,
-        }))
-        .insert_resource(Levels::new())
         .add_plugins(DefaultPlugins)
         // .add_plugin(EnemyPlugin)
         .add_plugin(KeyboardMovementPlugin)
@@ -84,32 +74,28 @@ fn main() {
         .add_plugin(MovementPlugin)
         .add_plugin(UiPlugin)
         .add_plugin(ConvarPlugin)
-        .add_startup_system(build_level.system())
-        // .add_startup_system(set_icon.system())
-        .add_startup_system(setup.system())
-        .add_system(update_camera.system())
+        // .add_startup_system(set_icon)
+        .add_startup_system(setup)
+        .add_system(update_camera)
         .run();
 }
 
-fn build_level(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut level_builder: ResMut<LevelBuilder>,
-    mut levels: ResMut<Levels>,
-) {
+fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Point {
     let floor = asset_server.load("tiles/floor.png");
     let wall = asset_server.load("tiles/wall.png");
 
-    let level = level_builder
-        .add_tile(Surface::Floor)
-        .add_tile(Surface::Wall)
-        .build(0)
-        .unwrap();
+    let mut map_builder = MapBuilder::new();
+    let (map, rooms) = map_builder
+        .depth(0)
+        .size(Size::splat(50))
+        .room_size(3..5, 3..5)
+        .nr_rooms(30)
+        .build();
 
     // Spawns the tiles sprites, this is never used for any logic, they are just drawn on the screen.
-    for row in 0..level.size.width {
-        for column in 0..level.size.height {
-            let tile = level.get_tile(Point { x: row, y: column }).unwrap();
+    for row in 0..map.size.width {
+        for column in 0..map.size.height {
+            let tile = map.get_tile(Point { x: row, y: column }).unwrap();
             let screen_position = tile.screen_position();
             commands
                 .spawn_bundle(SpriteBundle {
@@ -129,12 +115,14 @@ fn build_level(
         }
     }
 
-    levels.push(level);
+    commands.insert_resource(Level::new(map));
+
+    rooms[0].center()
 }
 
 fn update_camera(
     mut query: QuerySet<(
-        QueryState<(&Transform, With<Player>)>,
+        QueryState<&Transform, With<Player>>,
         QueryState<(&bevy::render::camera::Camera, &mut Transform)>,
     )>,
 ) {
@@ -144,14 +132,14 @@ fn update_camera(
 
     let mut q0 = query.q0();
     // No idea what the second value means, maybe if With<Player> is satisifed?
-    for (ply_pos, _) in q0.iter_mut() {
-        new_x = ply_pos.translation.x;
-        new_y = ply_pos.translation.y;
-    }
+    let ply_pos = q0.single_mut();
+
+    new_x = ply_pos.translation.x;
+    new_y = ply_pos.translation.y;
 
     let mut q1 = query.q1();
     for (camera, mut transform) in q1.iter_mut() {
-        if camera.name == Some(String::from("Camera2d")) {
+        if camera.name == Some(String::from("camera_2d")) {
             transform.translation.x = new_x;
             transform.translation.y = new_y;
         }
@@ -181,6 +169,8 @@ fn update_camera(
 
 /// Set up for the initial game state
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let safe_player_pos = build_and_insert_map(&mut commands, &asset_server);
+
     let mut camera = OrthographicCameraBundle::new_2d();
     camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
     commands.spawn_bundle(camera);
@@ -188,7 +178,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle::default());
 
     // let texture_char = asset_server.load("chars/new_juniper.png");
-    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    let font = asset_server.load("fonts/PublicPixel.ttf");
 
     // Create the player entity
     commands
@@ -196,38 +186,45 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // material: materials.add(texture_char.into()),
             texture: asset_server.load("chars/new_juniper.png"),
             transform: Transform {
-                translation: Vec3::new(32.0, 32.0, 1.0),
+                translation: Vec3::new(
+                    safe_player_pos.x as f32 * TILE_SIZE,
+                    safe_player_pos.y as f32 * TILE_SIZE,
+                    1.0,
+                ),
                 ..Default::default()
             },
             ..Default::default()
         })
         .insert(Player)
-        .insert(Point::new(1, 1))
+        .insert(safe_player_pos)
         .insert(WalkPath(Vec::<Point>::new()))
-        .with_children(|parent| {
-            parent
-                .spawn_bundle(Text2dBundle {
-                    text: Text::with_section(
-                        "100",
-                        TextStyle {
-                            font,
-                            font_size: 30.0,
-                            color: Color::DARK_GREEN,
-                        },
-                        TextAlignment {
-                            vertical: VerticalAlign::Top,
-                            horizontal: HorizontalAlign::Center,
-                        },
-                    ),
-                    transform: Transform {
-                        translation: Vec3::new(0f32, 20f32, 0f32),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(HealthText);
-        })
         .insert(Health(100));
+
+    commands
+        .spawn_bundle(TextBundle {
+            text: Text::with_section(
+                "100",
+                TextStyle {
+                    font,
+                    font_size: 30.0,
+                    color: Color::DARK_GREEN,
+                },
+                TextAlignment {
+                    vertical: VerticalAlign::Top,
+                    horizontal: HorizontalAlign::Center,
+                },
+            ),
+            style: Style {
+                position: Rect {
+                    bottom: Val::Percent(5.),
+                    left: Val::Percent(5.),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(HealthText);
 
     // Spawn the "Blob"
     commands
@@ -241,5 +238,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .insert(Blob)
-        .insert(Point::new(2, 1));
+        .insert(safe_player_pos);
 }

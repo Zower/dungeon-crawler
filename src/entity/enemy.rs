@@ -1,6 +1,6 @@
 use bevy::{core::FixedTimestep, prelude::*};
 
-use crate::{level::Point, logic::Direction, Levels};
+use crate::{level::Point, logic::Direction, Level};
 
 use rand::Rng;
 
@@ -50,14 +50,14 @@ fn spawn_enemies(
     time: Res<Time>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    levels: Res<Levels>,
+    levels: Res<Level>,
     mut timer: ResMut<SpawnEnemyTimer>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        let level = levels.current();
+        let map = levels.get_current();
 
-        let pos_x = rand::thread_rng().gen_range(1..level.size.width - 1);
-        let pos_y = rand::thread_rng().gen_range(1..level.size.height - 1);
+        let pos_x = rand::thread_rng().gen_range(1..map.size.width - 1);
+        let pos_y = rand::thread_rng().gen_range(1..map.size.height - 1);
 
         let pos = Vec2::new(pos_x as f32, pos_y as f32);
 
@@ -100,16 +100,16 @@ fn damage_enemies(
 }
 
 fn move_enemies(
-    levels: Res<Levels>,
+    maps: Res<Level>,
     mut enemies_query: Query<(&mut LastDirection, &mut Transform, &mut Point), With<Enemy>>,
 ) {
     // Stuff that's happening here no good, me fix later :D
     for (mut last_direction, mut transform, mut point) in enemies_query.iter_mut() {
         let new_direction = Enemy::next_direction(last_direction.0);
         last_direction.0 = new_direction;
-        let level = levels.current();
-        let next_tile = level
-            .get_neighbour(level.get_tile(*point).unwrap(), new_direction)
+        let map = maps.get_current();
+        let next_tile = map
+            .get_neighbour(map.get_tile(*point).unwrap(), new_direction)
             .unwrap();
 
         let new_transform = next_tile.screen_position();

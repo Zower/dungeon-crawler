@@ -14,7 +14,7 @@ impl Plugin for ConvarPlugin {
 /// if an event is missed for whatever reason, it will stay unupdated until a new event tells it to update.
 pub struct ConvarChange(pub Convar);
 
-/// All the possible convars, with different values
+/// All the possible convars.
 #[derive(Debug)]
 pub enum Convar {
     UiFps(Toggled),

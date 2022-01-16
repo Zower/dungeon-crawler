@@ -1,8 +1,11 @@
 //! Console, press F1 to toggle
 //! The console is currently not finished, e.g. movement is still registered even if the console is open
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    window::{CloseWindow, CreateWindow, WindowId},
+};
 
-use crate::input::{Convar, ConvarChange};
+use crate::input::{Convar, ConvarChange, KeyboardInUse};
 
 /// The plugin representing the Console UI element
 pub struct ConsolePlugin;
@@ -22,11 +25,13 @@ struct ConsoleText;
 /// System that checks if the user pressed F1, and toggles the visibility accordingly.
 fn toggle_console(
     keyboard_input: Res<Input<KeyCode>>,
+    mut lock_keyboard: ResMut<KeyboardInUse>,
     mut console_text_query: Query<&mut Visibility, With<ConsoleText>>,
 ) {
     let mut visible = console_text_query.single_mut();
     if keyboard_input.just_pressed(KeyCode::F1) {
-        visible.is_visible = !visible.is_visible
+        visible.is_visible = !visible.is_visible;
+        lock_keyboard.0 = visible.is_visible;
     }
 }
 
@@ -35,6 +40,7 @@ fn update_text(
     // Checking for literal keyboard keys, using for Enter, Backspace, etc. Trying to type * with this would just yield Lshift Key8
     key_pressed: Res<Input<KeyCode>>,
     mut convar_changed: EventWriter<ConvarChange>,
+    mut lock_keyboard: ResMut<KeyboardInUse>,
     // Checking for characters, used to read into the text, allows for modifiers etc.
     mut char_inputs: EventReader<ReceivedCharacter>,
     mut console_text_query: Query<(&mut Text, &mut Visibility), With<ConsoleText>>,
@@ -52,11 +58,12 @@ fn update_text(
                     }
                     prompt.clear();
                     visible.is_visible = false;
+                    lock_keyboard.0 = false;
                 }
-
                 KeyCode::Escape => {
                     prompt.clear();
                     visible.is_visible = false;
+                    lock_keyboard.0 = false;
                 }
                 KeyCode::Back => {
                     prompt.pop();

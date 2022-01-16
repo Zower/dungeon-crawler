@@ -28,6 +28,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
+                position: Rect {
+                    top: Val::Percent(5.),
+                    right: Val::Percent(15.),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             text: Text {

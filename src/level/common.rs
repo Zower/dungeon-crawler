@@ -22,7 +22,7 @@ pub struct Size {
 
 impl Size {
     /// Constructs a Size with width and height set to size
-    fn splat(size: i32) -> Size {
+    pub fn splat(size: i32) -> Size {
         Size {
             width: size,
             height: size,

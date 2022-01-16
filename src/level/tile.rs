@@ -27,6 +27,17 @@ pub enum Surface {
 // }
 
 impl Tile {
+    pub fn new(surface: Surface, position: Point) -> Self {
+        Self {
+            surface,
+            position,
+            screen_position: Vec2::new(
+                position.x as f32 * TILE_SIZE,
+                position.y as f32 * TILE_SIZE,
+            ),
+            cost: 1,
+        }
+    }
     /// Get the world position of this tile
     pub fn screen_position(&self) -> Vec2 {
         self.screen_position
