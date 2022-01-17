@@ -9,7 +9,7 @@ mod ui;
 
 use entity::*;
 use input::*;
-use level::{Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath, TILE_SIZE};
+use level::{Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath, TILE_SIZE, set_visible};
 use logic::{CollisionPlugin, MovementPlugin};
 use rand::Rng;
 use ui::*;
@@ -33,6 +33,10 @@ impl Level {
 
     fn get_current(&self) -> &Map {
         &self.maps[self.current_map]
+    }
+
+    fn get_current_mut(&mut self) -> &mut Map {
+        &mut self.maps[self.current_map]
     }
 
     fn push(&mut self, map: Map) {
@@ -77,7 +81,24 @@ fn main() {
         // .add_startup_system(set_icon)
         .add_startup_system(setup)
         .add_system(update_camera)
+        .add_system(test_fov)
         .run();
+}
+
+fn test_fov(
+    mut level: ResMut<Level>,
+    player: Query<&Point, With<Player>>,
+    mut map_sprites: Query<(&mut Visibility, &TileComponent)>
+) {
+    let map = level.get_current_mut();
+
+    let player_pos = player.get_single().unwrap();
+    set_visible(map, *player_pos);
+
+    for (mut visibility, pos) in map_sprites.iter_mut() {
+        visibility.is_visible = map.get_tile(pos.0).unwrap().revealed;
+    }
+
 }
 
 fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Point {
@@ -87,7 +108,7 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
     let mut map_builder = MapBuilder::new();
     let (map, rooms) = map_builder
         .depth(0)
-        .size(Size::splat(50))
+        .size(Size::splat(30))
         .room_size(3..5, 3..5)
         .nr_rooms(30)
         .build();
@@ -99,6 +120,16 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
             let screen_position = tile.screen_position();
             commands
                 .spawn_bundle(SpriteBundle {
+                    // sprite: Sprite {
+                    //     color: Color::Rgba {
+                    //         red: 0.,
+                    //         green: 0.,
+                    //         blue: 1.,
+                    //         alpha: 1.,
+                    //     },
+                    //     ..Default::default()
+                    // },
+                    visibility: Visibility { is_visible: false },
                     texture: if tile.surface == Surface::Wall {
                         wall.clone()
                     } else {
@@ -111,7 +142,7 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
                     },
                     ..Default::default()
                 })
-                .insert(TileComponent);
+                .insert(TileComponent(Point::new(row, column)));
         }
     }
 
@@ -215,6 +246,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             ),
             style: Style {
+                position_type: PositionType::Absolute,
                 position: Rect {
                     bottom: Val::Percent(5.),
                     left: Val::Percent(5.),

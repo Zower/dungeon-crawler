@@ -1,9 +1,6 @@
 //! Console, press F1 to toggle
 //! The console is currently not finished, e.g. movement is still registered even if the console is open
-use bevy::{
-    prelude::*,
-    window::{CloseWindow, CreateWindow, WindowId},
-};
+use bevy::prelude::*;
 
 use crate::input::{Convar, ConvarChange, KeyboardInUse};
 

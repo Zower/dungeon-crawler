@@ -145,14 +145,21 @@ impl MapBuilder {
 impl Map {
     /// Get a reference to a piece
     /// Returns None if the point is OOB for the current level size, or values are less than 0.
-    /// # Panics
-    /// Panics if the tile position doesnt match the input.
     pub fn get_tile(&self, point: Point) -> Option<&Tile> {
         if let Some(index) = self.translate(point) {
             self.grid.get(index)
         } else {
             None
         }
+    }
+
+    pub fn get_tile_mut(&mut self, point: Point) -> Option<&mut Tile> {
+        if let Some(index) = self.translate(point) {
+            self.grid.get_mut(index)
+        } else {
+            None
+        }
+
     }
 
     // Get neighbour of a certain tile
