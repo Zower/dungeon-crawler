@@ -9,7 +9,9 @@ mod ui;
 
 use entity::*;
 use input::*;
-use level::{Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath, TILE_SIZE, set_visible};
+use level::{
+    set_visible, Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath, TILE_SIZE,
+};
 use logic::{CollisionPlugin, MovementPlugin};
 use rand::Rng;
 use ui::*;
@@ -88,17 +90,22 @@ fn main() {
 fn test_fov(
     mut level: ResMut<Level>,
     player: Query<&Point, With<Player>>,
-    mut map_sprites: Query<(&mut Visibility, &TileComponent)>
+    mut map_sprites: Query<(&mut Visibility, &TileComponent)>,
 ) {
     let map = level.get_current_mut();
+
+    map.hide_all();
 
     let player_pos = player.get_single().unwrap();
     set_visible(map, *player_pos);
 
     for (mut visibility, pos) in map_sprites.iter_mut() {
-        visibility.is_visible = map.get_tile(pos.0).unwrap().revealed;
+        if map.get_tile(pos.0).unwrap().revealed {
+            visibility.is_visible = true;
+        } else {
+            visibility.is_visible = false;
+        }
     }
-
 }
 
 fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Point {
@@ -106,12 +113,16 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
     let wall = asset_server.load("tiles/wall.png");
 
     let mut map_builder = MapBuilder::new();
-    let (map, rooms) = map_builder
+    let (mut map, rooms) = map_builder
         .depth(0)
         .size(Size::splat(30))
         .room_size(3..5, 3..5)
         .nr_rooms(30)
         .build();
+    // .build_all_floors();
+
+    // map.reveal_all();
+    // .build();
 
     // Spawns the tiles sprites, this is never used for any logic, they are just drawn on the screen.
     for row in 0..map.size.width {
@@ -120,22 +131,12 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
             let screen_position = tile.screen_position();
             commands
                 .spawn_bundle(SpriteBundle {
-                    // sprite: Sprite {
-                    //     color: Color::Rgba {
-                    //         red: 0.,
-                    //         green: 0.,
-                    //         blue: 1.,
-                    //         alpha: 1.,
-                    //     },
-                    //     ..Default::default()
-                    // },
                     visibility: Visibility { is_visible: false },
                     texture: if tile.surface == Surface::Wall {
                         wall.clone()
                     } else {
                         floor.clone()
                     },
-                    // material: tile.tile_type.texture.clone(),
                     transform: Transform {
                         translation: Vec3::new(screen_position.x, screen_position.y, 0f32),
                         ..Default::default()

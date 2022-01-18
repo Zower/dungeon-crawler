@@ -78,6 +78,27 @@ impl MapBuilder {
         self
     }
 
+    pub fn build_all_floors(&self) -> (Map, Vec<Rect>) {
+        let mut map = Map {
+            depth: self.depth,
+            grid: Vec::with_capacity((self.map_size.width * self.map_size.height) as usize),
+            size: self.map_size,
+        };
+
+        debug!(
+            "Generating map with all floors with size: x: {:?}, y: {:?}",
+            self.map_size.width, self.map_size.height
+        );
+
+        for x in 0..self.map_size.width {
+            for y in 0..self.map_size.height {
+                map.grid.push(Tile::new(Surface::Floor, Point::new(x, y)));
+            }
+        }
+
+        (map, vec![])
+    }
+
     /// Build a random map.
     pub fn build(&self) -> (Map, Vec<Rect>) {
         let mut map = Map {
@@ -159,7 +180,6 @@ impl Map {
         } else {
             None
         }
-
     }
 
     // Get neighbour of a certain tile
@@ -320,6 +340,18 @@ impl Map {
         path.reverse();
 
         path
+    }
+
+    pub fn reveal_all(&mut self) {
+        for tile in &mut self.grid {
+            tile.revealed = true;
+        }
+    }
+
+    pub fn hide_all(&mut self) {
+        for tile in &mut self.grid {
+            tile.revealed = false;
+        }
     }
 
     fn heuristic(a: Point, b: Point) -> i32 {
