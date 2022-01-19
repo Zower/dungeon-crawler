@@ -33,10 +33,7 @@ where
     }
 }
 
-impl NotConvarManual for i32 {}
-impl NotConvarManual for f32 {}
-
-fn process_convar_text_change<T: 'static + Convar + Default + Send + Sync>(
+fn process_convar_text_change<T: 'static + Convar + Send + Sync>(
     mut res: ResMut<T>,
     mut convar_text: EventReader<ConvarTextSubmit>,
 ) {
@@ -55,16 +52,30 @@ fn process_convar_text_change<T: 'static + Convar + Default + Send + Sync>(
 pub struct ConvarTextSubmit(pub String);
 
 pub trait AddConvar {
-    fn add_convar<T: 'static + Convar + Default + Send + Sync>(&mut self) -> &mut Self;
+    fn add_convar_default<T: 'static + Convar + Default + Send + Sync>(&mut self) -> &mut Self;
+    fn add_convar<T: 'static + Convar + Send + Sync>(&mut self, t: T) -> &mut Self;
 }
 
 impl AddConvar for App {
-    fn add_convar<T: 'static + Convar + Default + Send + Sync>(&mut self) -> &mut Self {
+    fn add_convar_default<T: 'static + Convar + Default + Send + Sync>(&mut self) -> &mut Self {
         self.insert_resource(T::default())
             .add_system(process_convar_text_change::<T>);
         self
     }
+
+    fn add_convar<T: 'static + Convar + Send + Sync>(&mut self, t: T) -> &mut Self {
+        self.insert_resource(t)
+            .add_system(process_convar_text_change::<T>);
+        self
+    }
 }
+
+pub trait NotConvarManual {}
+
+impl NotConvarManual for i32 {}
+impl NotConvarManual for f32 {}
+impl NotConvarManual for String {}
+impl NotConvarManual for &str {}
 
 impl IntoConvar for bool {
     fn into_convar(s: &str) -> Option<Self> {
@@ -78,8 +89,6 @@ impl IntoConvar for bool {
         }
     }
 }
-
-pub trait NotConvarManual {}
 
 #[derive(Debug)]
 pub struct NotParseableError(String);

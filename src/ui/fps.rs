@@ -17,7 +17,7 @@ impl Plugin for FPSPlugin {
             .add_startup_system(setup)
             .add_system(update_text)
             .add_system(toggle_visibility)
-            .add_convar::<UiFps>();
+            .add_convar_default::<UiFps>();
     }
 }
 
@@ -69,14 +69,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Timer::from_seconds(0.1, true));
 }
 
-/// System that checks if visibility should be toggled
+/// System that checks if visibility should be toggled based on UiFps Convar.
 fn toggle_visibility(
     fps_toggled: Res<UiFps>,
     mut fps_text_query: Query<&mut Visibility, With<FPSText>>,
 ) {
-    let mut visible = fps_text_query.single_mut();
-
-    visible.is_visible = fps_toggled.0;
+    fps_text_query.single_mut().is_visible = fps_toggled.0;
 }
 
 /// System that updates the FPS values, if FPStimer is finished and text is visible

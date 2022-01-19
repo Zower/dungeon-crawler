@@ -7,6 +7,7 @@ mod level;
 mod logic;
 mod ui;
 
+use dungeon_crawler_derive::Convar;
 use entity::*;
 use input::*;
 use level::{
@@ -18,9 +19,8 @@ use ui::*;
 
 use bevy::prelude::*;
 
-struct GlobalVision {
-    on: bool,
-}
+#[derive(Debug, Default, Convar)]
+struct GlobalVision(bool);
 
 /// Holds all the maps currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
@@ -88,13 +88,12 @@ fn main() {
         .add_startup_system(setup)
         .add_system(update_camera)
         .add_system(test_fov)
-        .insert_resource(GlobalVision { on: false })
+        .add_convar_default::<GlobalVision>()
         .run();
 }
 
 fn test_fov(
-    // mut global: ResMut<GlobalVision>,
-    // mut fps_convar_changed: EventReader<ConvarChange>,
+    global: Res<GlobalVision>,
     mut level: ResMut<Level>,
     player: Query<&Point, With<Player>>,
     mut map_sprites: Query<(&mut Sprite, &mut Visibility, &TileComponent)>,
@@ -104,18 +103,8 @@ fn test_fov(
     let player_pos = player.get_single().unwrap();
     set_visible(map, *player_pos);
 
-    // for event in fps_convar_changed.iter() {
-    //     if let ConvarChange(Convar::GlobalVision(new_value)) = event {
-    //         if *new_value == Toggled::On {
-    //             global.on = true;
-    //         } else {
-    //             global.on = false;
-    //         }
-    //     }
-    // }
-
     for (mut sprite, mut visibility, pos) in map_sprites.iter_mut() {
-        if false {
+        if global.0 {
             visibility.is_visible = true;
         } else {
             match map.get_tile(pos.0).unwrap().revealed {
