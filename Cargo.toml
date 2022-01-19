@@ -10,3 +10,4 @@ edition = "2021"
 bevy = "0.6.0"
 image = "0.23.12"
 rand = "0.8.3"
+dungeon_crawler_derive = { path = "./dungeon_crawler_derive" }

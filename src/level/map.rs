@@ -344,13 +344,13 @@ impl Map {
 
     pub fn reveal_all(&mut self) {
         for tile in &mut self.grid {
-            tile.revealed = true;
+            tile.revealed = ViewedState::InView;
         }
     }
 
     pub fn hide_all(&mut self) {
         for tile in &mut self.grid {
-            tile.revealed = false;
+            tile.revealed = ViewedState::NotViewed;
         }
     }
 

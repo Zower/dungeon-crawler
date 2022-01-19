@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use bevy::prelude::info;
 
-use super::{Map, Point};
+use super::{tile::ViewedState, Map, Point};
 
 pub fn set_visible(map: &mut Map, init_position: Point) {
     for octant in 0..=7 {
@@ -12,7 +12,7 @@ pub fn set_visible(map: &mut Map, init_position: Point) {
 
 fn set_visible_octant(map: &mut Map, octant: u8, init_position: Point) {
     let mut blocked_fov = BlockedFov::new();
-    for row in 1..7 {
+    for row in 1.. {
         if !map.in_bounds(
             init_position + BlockedFov::rotate_for_octant(OctantPoint::new(row, 0), octant),
         ) {
@@ -28,12 +28,25 @@ fn set_visible_octant(map: &mut Map, octant: u8, init_position: Point) {
             }
 
             if blocked_fov.is_fully_blocked() {
-                map.get_tile_mut(pos).unwrap().revealed = false;
+                let tile = map.get_tile_mut(pos).unwrap();
+                tile.revealed = match tile.revealed {
+                    ViewedState::NotViewed => ViewedState::NotViewed,
+                    _ => ViewedState::PreviouslyViewed,
+                };
             } else {
                 let blocker = ShadowBorder::new(OctantPoint::new(row, col));
 
                 let visible = !blocked_fov.is_not_viewable(&blocker);
-                map.get_tile_mut(pos).unwrap().revealed = visible;
+                let tile = map.get_tile_mut(pos).unwrap();
+
+                if !visible {
+                    tile.revealed = match tile.revealed {
+                        ViewedState::NotViewed => ViewedState::NotViewed,
+                        _ => ViewedState::PreviouslyViewed,
+                    };
+                } else {
+                    tile.revealed = ViewedState::InView;
+                }
 
                 if visible && map.get_tile(pos).unwrap().is_wall() {
                     blocked_fov.add_blocker(blocker);

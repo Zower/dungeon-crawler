@@ -1,5 +1,7 @@
 //! Console variables
 
+use std::str::FromStr;
+
 use bevy::prelude::*;
 
 /// Plugin that adds the ConvarChange event to the system.
@@ -7,54 +9,77 @@ pub struct ConvarPlugin;
 
 impl Plugin for ConvarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ConvarChange>();
+        app.add_event::<ConvarTextSubmit>();
     }
 }
-/// Convars are entirely controlled by events. There is no source of 'truth' for a variable.
-/// if an event is missed for whatever reason, it will stay unupdated until a new event tells it to update.
-pub struct ConvarChange(pub Convar);
 
-/// All the possible convars.
-#[derive(Debug)]
-pub enum Convar {
-    UiFps(Toggled),
+pub trait Convar {
+    type Item: IntoConvar;
+
+    fn change(&mut self, item: Self::Item);
+    fn command_name(&self) -> &'static str;
 }
 
-/// The toggled value, for a convar that can be either on or off.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Toggled {
-    On,
-    Off,
+pub trait IntoConvar: Sized {
+    fn into_convar(s: &str) -> Option<Self>;
 }
 
-impl Convar {
-    /// Attempts to parse a string into a Convar
-    pub fn parse(string: String) -> Result<Convar, NotParseableError> {
-        let tokens: Vec<&str> = string.split(' ').collect();
-        if tokens.len() >= 2 {
-            let key = *tokens.get(0).unwrap();
-            let value = String::from(*tokens.get(1).unwrap());
+impl<T> IntoConvar for T
+where
+    T: FromStr + NotConvarManual,
+{
+    fn into_convar(s: &str) -> Option<Self> {
+        Self::from_str(s).ok()
+    }
+}
 
-            match key {
-                "ui_fps" => {
-                    if value == "1" {
-                        return Ok(Convar::UiFps(Toggled::On));
-                    }
-                    return Ok(Convar::UiFps(Toggled::Off));
-                }
-                _ => {
-                    return Err(NotParseableError(String::from(
-                        "No known convar with that key",
-                    )))
-                }
+impl NotConvarManual for i32 {}
+impl NotConvarManual for f32 {}
+
+fn process_convar_text_change<T: 'static + Convar + Default + Send + Sync>(
+    mut res: ResMut<T>,
+    mut convar_text: EventReader<ConvarTextSubmit>,
+) {
+    for text in convar_text.iter() {
+        let mut split = text.0.split(" ");
+        if split.next() == Some(res.command_name()) {
+            let x = T::Item::into_convar(split.next().unwrap());
+            match x {
+                Some(x) => res.change(x),
+                None => info!("Wrong convar!"),
             }
-        } else {
-            return Err(NotParseableError(String::from(
-                "the string doesn't contain at least a key and a value",
-            )));
         }
     }
 }
+
+pub struct ConvarTextSubmit(pub String);
+
+pub trait AddConvar {
+    fn add_convar<T: 'static + Convar + Default + Send + Sync>(&mut self) -> &mut Self;
+}
+
+impl AddConvar for App {
+    fn add_convar<T: 'static + Convar + Default + Send + Sync>(&mut self) -> &mut Self {
+        self.insert_resource(T::default())
+            .add_system(process_convar_text_change::<T>);
+        self
+    }
+}
+
+impl IntoConvar for bool {
+    fn into_convar(s: &str) -> Option<Self> {
+        match Self::from_str(s) {
+            Ok(val) => Some(val),
+            _ => match s.parse::<i32>() {
+                Ok(val) if val == 1 => Some(true),
+                Ok(_) => Some(false),
+                _ => None,
+            },
+        }
+    }
+}
+
+pub trait NotConvarManual {}
 
 #[derive(Debug)]
 pub struct NotParseableError(String);

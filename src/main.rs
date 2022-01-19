@@ -10,13 +10,17 @@ mod ui;
 use entity::*;
 use input::*;
 use level::{
-    set_visible, Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath, TILE_SIZE,
+    set_visible, Map, MapBuilder, Point, Size, Surface, TileComponent, ViewedState, WalkPath,
+    TILE_SIZE,
 };
 use logic::{CollisionPlugin, MovementPlugin};
-use rand::Rng;
 use ui::*;
 
 use bevy::prelude::*;
+
+struct GlobalVision {
+    on: bool,
+}
 
 /// Holds all the maps currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
@@ -68,7 +72,7 @@ fn main() {
             cursor_visible: true,
             decorations: true,
         })
-        .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .insert_resource(ClearColor(Color::rgb(0.52, 0.149, 0.3412)))
         // .insert_resource(SpriteSettings {
         //     frustum_culling_enabled: true,
         // })
@@ -84,40 +88,63 @@ fn main() {
         .add_startup_system(setup)
         .add_system(update_camera)
         .add_system(test_fov)
+        .insert_resource(GlobalVision { on: false })
         .run();
 }
 
 fn test_fov(
+    // mut global: ResMut<GlobalVision>,
+    // mut fps_convar_changed: EventReader<ConvarChange>,
     mut level: ResMut<Level>,
     player: Query<&Point, With<Player>>,
-    mut map_sprites: Query<(&mut Visibility, &TileComponent)>,
+    mut map_sprites: Query<(&mut Sprite, &mut Visibility, &TileComponent)>,
 ) {
     let map = level.get_current_mut();
-
-    map.hide_all();
 
     let player_pos = player.get_single().unwrap();
     set_visible(map, *player_pos);
 
-    for (mut visibility, pos) in map_sprites.iter_mut() {
-        if map.get_tile(pos.0).unwrap().revealed {
+    // for event in fps_convar_changed.iter() {
+    //     if let ConvarChange(Convar::GlobalVision(new_value)) = event {
+    //         if *new_value == Toggled::On {
+    //             global.on = true;
+    //         } else {
+    //             global.on = false;
+    //         }
+    //     }
+    // }
+
+    for (mut sprite, mut visibility, pos) in map_sprites.iter_mut() {
+        if false {
             visibility.is_visible = true;
         } else {
-            visibility.is_visible = false;
+            match map.get_tile(pos.0).unwrap().revealed {
+                ViewedState::NotViewed => {
+                    visibility.is_visible = false;
+                }
+                ViewedState::InView => {
+                    visibility.is_visible = true;
+                    sprite.color = Color::WHITE;
+                }
+                ViewedState::PreviouslyViewed => {
+                    visibility.is_visible = true;
+                    sprite.color = Color::GRAY;
+                }
+            }
         }
     }
 }
 
 fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Point {
-    let floor = asset_server.load("tiles/floor.png");
-    let wall = asset_server.load("tiles/wall.png");
+    let floor = asset_server.load("tiles/Purple_floor.png");
+    let wall = asset_server.load("tiles/Purple_wall.png");
 
     let mut map_builder = MapBuilder::new();
     let (mut map, rooms) = map_builder
         .depth(0)
-        .size(Size::splat(30))
-        .room_size(3..5, 3..5)
-        .nr_rooms(30)
+        .size(Size::splat(95))
+        .room_size(3..8, 3..8)
+        .nr_rooms(50)
         .build();
     // .build_all_floors();
 

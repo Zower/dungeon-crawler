@@ -4,8 +4,9 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
+use dungeon_crawler_derive::Convar;
 
-use crate::input::{Convar, ConvarChange, Toggled};
+use crate::input::{AddConvar, Convar};
 
 /// The plugin representing the FPS UI element
 pub struct FPSPlugin;
@@ -15,13 +16,17 @@ impl Plugin for FPSPlugin {
         app.add_plugin(FrameTimeDiagnosticsPlugin)
             .add_startup_system(setup)
             .add_system(update_text)
-            .add_system(toggle_visibility);
+            .add_system(toggle_visibility)
+            .add_convar::<UiFps>();
     }
 }
 
 // Component held by the TextBundle to identify the right text.
 #[derive(Debug, Component)]
 struct FPSText;
+
+#[derive(Debug, Default, Convar)]
+struct UiFps(bool);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -66,20 +71,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// System that checks if visibility should be toggled
 fn toggle_visibility(
-    mut fps_convar_changed: EventReader<ConvarChange>,
+    fps_toggled: Res<UiFps>,
     mut fps_text_query: Query<&mut Visibility, With<FPSText>>,
 ) {
     let mut visible = fps_text_query.single_mut();
-    // If out of sync
-    for event in fps_convar_changed.iter() {
-        if let ConvarChange(Convar::UiFps(new_value)) = event {
-            if *new_value == Toggled::On {
-                visible.is_visible = true;
-            } else {
-                visible.is_visible = false;
-            }
-        }
-    }
+
+    visible.is_visible = fps_toggled.0;
 }
 
 /// System that updates the FPS values, if FPStimer is finished and text is visible

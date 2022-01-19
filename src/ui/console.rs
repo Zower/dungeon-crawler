@@ -2,7 +2,7 @@
 //! The console is currently not finished, e.g. movement is still registered even if the console is open
 use bevy::prelude::*;
 
-use crate::input::{Convar, ConvarChange, KeyboardInUse};
+use crate::input::{ConvarTextSubmit, KeyboardInUse};
 
 /// The plugin representing the Console UI element
 pub struct ConsolePlugin;
@@ -36,7 +36,7 @@ fn toggle_console(
 fn update_text(
     // Checking for literal keyboard keys, using for Enter, Backspace, etc. Trying to type * with this would just yield Lshift Key8
     key_pressed: Res<Input<KeyCode>>,
-    mut convar_changed: EventWriter<ConvarChange>,
+    mut convar_changed: EventWriter<ConvarTextSubmit>,
     mut lock_keyboard: ResMut<KeyboardInUse>,
     // Checking for characters, used to read into the text, allows for modifiers etc.
     mut char_inputs: EventReader<ReceivedCharacter>,
@@ -50,9 +50,13 @@ fn update_text(
         for pressed_key in key_pressed.get_just_pressed() {
             match pressed_key {
                 KeyCode::Return => {
-                    if let Ok(new_value) = Convar::parse(prompt.clone()) {
-                        convar_changed.send(ConvarChange(new_value));
-                    }
+                    // if let Ok(new_value) = Convar::parse(prompt.clone()) {
+                    // convar_changed.send(ConvarChange(new_value));
+                    convar_changed.send(ConvarTextSubmit(std::mem::replace(
+                        prompt,
+                        String::default(),
+                    )));
+                    // }
                     prompt.clear();
                     visible.is_visible = false;
                     lock_keyboard.0 = false;

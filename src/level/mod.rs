@@ -6,6 +6,6 @@ mod rect;
 mod tile;
 
 pub use common::*;
-pub use map::*;
-pub use tile::{Surface, Tile, TileComponent, TILE_SIZE};
 pub use fov::*;
+pub use map::*;
+pub use tile::*;
