@@ -138,7 +138,7 @@ impl MapBuilder {
                 debug!("Creating room: {new_room:?}");
                 for x in new_room.x1..=new_room.x2 {
                     for y in new_room.y1..=new_room.y2 {
-                        map.grid[Map::xy_idx(Point::new(x, y), self.map_size.width)].surface =
+                        map.grid[Map::xy_idx(&Point::new(x, y), self.map_size.width)].surface =
                             Surface::Floor;
                     }
                 }
@@ -166,7 +166,7 @@ impl MapBuilder {
 impl Map {
     /// Get a reference to a piece
     /// Returns None if the point is OOB for the current level size, or values are less than 0.
-    pub fn get_tile(&self, point: Point) -> Option<&Tile> {
+    pub fn get_tile(&self, point: &Point) -> Option<&Tile> {
         if let Some(index) = self.translate(point) {
             self.grid.get(index)
         } else {
@@ -174,7 +174,7 @@ impl Map {
         }
     }
 
-    pub fn get_tile_mut(&mut self, point: Point) -> Option<&mut Tile> {
+    pub fn get_tile_mut(&mut self, point: &Point) -> Option<&mut Tile> {
         if let Some(index) = self.translate(point) {
             self.grid.get_mut(index)
         } else {
@@ -194,7 +194,7 @@ impl Map {
                 Direction::Still => (),
             }
 
-            if let Some(index) = self.translate(neighbour_point) {
+            if let Some(index) = self.translate(&neighbour_point) {
                 self.grid.get(index)
             } else {
                 None
@@ -207,7 +207,7 @@ impl Map {
 
     /// Get all neighbours (4-directional) of a piece
     pub fn get_neighbours(&self, position: &Point) -> Vec<&Tile> {
-        debug_assert!(self.in_bounds(*position));
+        debug_assert!(self.in_bounds(position));
 
         // Check that a valid reference was passed
         let mut neighbours = Vec::new();
@@ -218,27 +218,27 @@ impl Map {
         };
 
         // Get index of the point, should always be valid so unwrap() is safe
-        if let Some(index) = self.translate(neighbour_point) {
+        if let Some(index) = self.translate(&neighbour_point) {
             // Push the neighbour to final vector.
             neighbours.push(self.grid.get(index).unwrap());
         }
 
         // Changing to right neighbour
         neighbour_point.x += 2;
-        if let Some(index) = self.translate(neighbour_point) {
+        if let Some(index) = self.translate(&neighbour_point) {
             neighbours.push(self.grid.get(index).unwrap());
         }
 
         // Changing to above neighbour
         neighbour_point.x -= 1;
         neighbour_point.y += 1;
-        if let Some(index) = self.translate(neighbour_point) {
+        if let Some(index) = self.translate(&neighbour_point) {
             neighbours.push(self.grid.get(index).unwrap());
         }
 
         // Changing to below neighbour
         neighbour_point.y -= 2;
-        if let Some(index) = self.translate(neighbour_point) {
+        if let Some(index) = self.translate(&neighbour_point) {
             neighbours.push(self.grid.get(index).unwrap());
         }
 
@@ -251,7 +251,7 @@ impl Map {
 impl Map {
     pub fn apply_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
         for x in min(x1, x2)..=max(x1, x2) {
-            let idx = Map::xy_idx(Point::new(x, y), self.size.height);
+            let idx = Map::xy_idx(&Point::new(x, y), self.size.height);
             if idx > 0 && idx < 80 * 50 {
                 self.grid[idx as usize].surface = Surface::Floor;
             }
@@ -260,33 +260,33 @@ impl Map {
 
     pub fn apply_vertical_tunnel(&mut self, y1: i32, y2: i32, x: i32) {
         for y in min(y1, y2)..=max(y1, y2) {
-            let idx = Map::xy_idx(Point::new(x, y), self.size.height);
+            let idx = Map::xy_idx(&Point::new(x, y), self.size.height);
             if idx > 0 && idx < 80 * 50 {
                 self.grid[idx as usize].surface = Surface::Floor;
             }
         }
     }
-    pub fn in_bounds(&self, point: Point) -> bool {
+    pub fn in_bounds(&self, point: &Point) -> bool {
         point.x < self.size.width && point.y < self.size.height && point.x >= 0 && point.y >= 0
     }
 
     /// Translate 2D coordinates into a index
     /// Returns None if the point is OOB.
-    pub fn translate(&self, point: Point) -> Option<usize> {
+    pub fn translate(&self, point: &Point) -> Option<usize> {
         if self.in_bounds(point) {
             return Some(Self::xy_idx(point, self.size.height));
         }
         None
     }
 
-    pub fn xy_idx(point: Point, height: i32) -> usize {
+    pub fn xy_idx(point: &Point, height: i32) -> usize {
         (point.x * height + point.y) as usize
     }
 
     /// A* implemented from <https://www.redblobgames.com/pathfinding/a-star/introduction.html>
     pub fn a_star(&self, start: Point, goal: Point) -> Vec<Point> {
         let mut frontier = BinaryHeap::new();
-        let start_point = self.get_tile(start).unwrap().position;
+        let start_point = self.get_tile(&start).unwrap().position;
         frontier.push(Reverse(TilePriority {
             point: &start_point,
             priority: 0,
@@ -330,7 +330,7 @@ impl Map {
         // Came_from now includes the correct path, that can be traced back from came_from[goal]
         let mut path = Vec::new();
 
-        let mut current = self.get_tile(goal).unwrap().position;
+        let mut current = self.get_tile(&goal).unwrap().position;
 
         while current != start_point {
             path.push(current);

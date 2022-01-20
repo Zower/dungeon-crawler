@@ -14,7 +14,7 @@ use level::{
     set_visible, Map, MapBuilder, Point, Size, Surface, TileComponent, ViewedState, WalkPath,
     TILE_SIZE,
 };
-use logic::{CollisionPlugin, MovementPlugin};
+use logic::{CameraPlugin, CollisionPlugin, MovementPlugin};
 use ui::*;
 
 use bevy::prelude::*;
@@ -84,9 +84,9 @@ fn main() {
         .add_plugin(MovementPlugin)
         .add_plugin(UiPlugin)
         .add_plugin(ConvarPlugin)
+        .add_plugin(CameraPlugin)
         // .add_startup_system(set_icon)
         .add_startup_system(setup)
-        .add_system(update_camera)
         .add_system(test_fov)
         .add_convar_default::<GlobalVision>()
         .run();
@@ -107,7 +107,7 @@ fn test_fov(
         if global.0 {
             visibility.is_visible = true;
         } else {
-            match map.get_tile(pos.0).unwrap().revealed {
+            match map.get_tile(&pos.0).unwrap().revealed {
                 ViewedState::NotViewed => {
                     visibility.is_visible = false;
                 }
@@ -129,21 +129,16 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
     let wall = asset_server.load("tiles/Purple_wall.png");
 
     let mut map_builder = MapBuilder::new();
-    let (mut map, rooms) = map_builder
+    let (map, rooms) = map_builder
         .depth(0)
         .size(Size::splat(95))
         .room_size(3..8, 3..8)
         .nr_rooms(50)
         .build();
-    // .build_all_floors();
-
-    // map.reveal_all();
-    // .build();
-
     // Spawns the tiles sprites, this is never used for any logic, they are just drawn on the screen.
     for row in 0..map.size.width {
         for column in 0..map.size.height {
-            let tile = map.get_tile(Point { x: row, y: column }).unwrap();
+            let tile = map.get_tile(&Point { x: row, y: column }).unwrap();
             let screen_position = tile.screen_position();
             commands
                 .spawn_bundle(SpriteBundle {
@@ -165,65 +160,12 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
 
     commands.insert_resource(Level::new(map));
 
-    rooms[0].center()
+    rooms.get(0).map(|r| r.center()).unwrap_or(Point::new(1, 1))
 }
-
-fn update_camera(
-    mut query: QuerySet<(
-        QueryState<&Transform, With<Player>>,
-        QueryState<(&bevy::render::camera::Camera, &mut Transform)>,
-    )>,
-) {
-    // Can't borrow q at the same time, so need to remember values
-    let mut new_x = 0.0;
-    let mut new_y = 0.0;
-
-    let mut q0 = query.q0();
-    // No idea what the second value means, maybe if With<Player> is satisifed?
-    let ply_pos = q0.single_mut();
-
-    new_x = ply_pos.translation.x;
-    new_y = ply_pos.translation.y;
-
-    let mut q1 = query.q1();
-    for (camera, mut transform) in q1.iter_mut() {
-        if camera.name == Some(String::from("camera_2d")) {
-            transform.translation.x = new_x;
-            transform.translation.y = new_y;
-        }
-    }
-}
-
-// Currently broken after bevy 5.0
-// NOTE(erlend):
-// systems that access Resources run on the main thread
-// and winit_window.set_window_icon hangs(deadlock?) when it
-// runs from a different thread...
-// fn set_icon(_: &mut World, resources: &mut Resources) {
-//     let winit_windows = resources.get::<WinitWindows>().unwrap();
-//     let windows = resources.get::<Windows>().unwrap();
-
-//     let img = image::open("assets/logo/logo.png").unwrap();
-
-//     if let Some(window) = windows.get_primary() {
-//         if let Some(winit_window) = winit_windows.get_window(window.id()) {
-//             winit_window.set_window_icon(Some(
-//                 winit::window::Icon::from_rgba(img.to_bytes(), 32, 32)
-//                     .expect("Failed to create icon"), //Error handling? No.
-//             ));
-//         }
-//     }
-// }
 
 /// Set up for the initial game state
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let safe_player_pos = build_and_insert_map(&mut commands, &asset_server);
-
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
-    commands.spawn_bundle(camera);
-
-    commands.spawn_bundle(UiCameraBundle::default());
 
     // let texture_char = asset_server.load("chars/new_juniper.png");
     let font = asset_server.load("fonts/PublicPixel.ttf");

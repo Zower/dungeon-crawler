@@ -54,8 +54,8 @@ fn mouse_update_grid(
 
                             let (mut player_path, player_position) = player_query.single_mut();
                             let map = maps.get_current();
-                            if map.in_bounds(goal) {
-                                let goal = map.get_tile(goal).unwrap();
+                            if map.in_bounds(&goal) {
+                                let goal = map.get_tile(&goal).unwrap();
                                 if goal.is_safe() {
                                     player_path.0 =
                                         Map::a_star(&map, *player_position, goal.position);

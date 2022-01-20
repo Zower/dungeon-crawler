@@ -1,7 +1,5 @@
 use std::ops::Add;
 
-use bevy::prelude::info;
-
 use super::{tile::ViewedState, Map, Point};
 
 pub fn set_visible(map: &mut Map, init_position: Point) {
@@ -14,7 +12,7 @@ fn set_visible_octant(map: &mut Map, octant: u8, init_position: Point) {
     let mut blocked_fov = BlockedFov::new();
     for row in 1.. {
         if !map.in_bounds(
-            init_position + BlockedFov::rotate_for_octant(OctantPoint::new(row, 0), octant),
+            &(init_position + BlockedFov::rotate_for_octant(OctantPoint::new(row, 0), octant)),
         ) {
             break;
         }
@@ -23,12 +21,12 @@ fn set_visible_octant(map: &mut Map, octant: u8, init_position: Point) {
             let pos =
                 init_position + BlockedFov::rotate_for_octant(OctantPoint::new(row, col), octant);
 
-            if !map.in_bounds(pos) {
+            if !map.in_bounds(&pos) {
                 break;
             }
 
             if blocked_fov.is_fully_blocked() {
-                let tile = map.get_tile_mut(pos).unwrap();
+                let tile = map.get_tile_mut(&pos).unwrap();
                 tile.revealed = match tile.revealed {
                     ViewedState::NotViewed => ViewedState::NotViewed,
                     _ => ViewedState::PreviouslyViewed,
@@ -37,7 +35,7 @@ fn set_visible_octant(map: &mut Map, octant: u8, init_position: Point) {
                 let blocker = ShadowBorder::new(OctantPoint::new(row, col));
 
                 let visible = !blocked_fov.is_not_viewable(&blocker);
-                let tile = map.get_tile_mut(pos).unwrap();
+                let tile = map.get_tile_mut(&pos).unwrap();
 
                 if !visible {
                     tile.revealed = match tile.revealed {
@@ -48,7 +46,7 @@ fn set_visible_octant(map: &mut Map, octant: u8, init_position: Point) {
                     tile.revealed = ViewedState::InView;
                 }
 
-                if visible && map.get_tile(pos).unwrap().is_wall() {
+                if visible && map.get_tile(&pos).unwrap().is_wall() {
                     blocked_fov.add_blocker(blocker);
                 }
             }

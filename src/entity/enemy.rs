@@ -109,7 +109,7 @@ fn move_enemies(
         last_direction.0 = new_direction;
         let map = maps.get_current();
         let next_tile = map
-            .get_neighbour(map.get_tile(*point).unwrap(), new_direction)
+            .get_neighbour(map.get_tile(&point).unwrap(), new_direction)
             .unwrap();
 
         let new_transform = next_tile.screen_position();

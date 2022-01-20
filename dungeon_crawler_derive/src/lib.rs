@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens, __private::Span};
-use syn::{self, Data, Fields, Ident, Path, Type};
+use quote::{__private::Span, quote};
+use syn::{self, Data, Fields, Ident, Type};
 
 #[proc_macro_derive(Convar)]
 pub fn convar_derive(input: TokenStream) -> TokenStream {

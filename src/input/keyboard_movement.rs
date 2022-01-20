@@ -1,12 +1,10 @@
 //! Keyboard movement.
 
-use std::time::Duration;
-
 use bevy::prelude::*;
 
 use crate::{
     level::{Point, WalkPath},
-    logic::Direction,
+    logic::{Direction, MovePlayerTimer},
     Level, Player,
 };
 
@@ -33,7 +31,7 @@ fn update_player_direction(
     let (player_position, mut player_path) = player_query.single_mut();
     let map = levels.get_current();
 
-    let current_tile = map.get_tile(*player_position).unwrap();
+    let current_tile = map.get_tile(player_position).unwrap();
     let mut direction = Direction::Still;
     if keyboard_input.pressed(KeyCode::W) {
         direction = Direction::Up;
