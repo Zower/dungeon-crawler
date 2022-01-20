@@ -16,10 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Dependencies
-      run: sudo apt-get install libasound2-dev libudev-dev
     - name: Update
       run: sudo apt-get update
+    - name: Dependencies
+      run: sudo apt-get install libasound2-dev libudev-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests
