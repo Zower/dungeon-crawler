@@ -39,12 +39,12 @@ fn update_camera(
 
     if let Ok(ply_pos) = player_query.get_single() {
         *cam_pos = ply_pos.translation;
-        // requested.previous_position = *cam_pos;
+    //     requested.previous_position = *cam_pos;
 
-        // let trans = &ply_pos.translation;
-        // requested.requested_position = *trans;
+    //     let trans = &ply_pos.translation;
+    //     requested.requested_position = *trans;
 
-        // requested.timer.reset();
+    //     requested.timer.reset();
     }
     // else {
     //     if !requested.timer.finished() {
