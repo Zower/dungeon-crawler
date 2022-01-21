@@ -2,40 +2,29 @@ use std::time::Duration;
 
 use crate::{level::Point, Blob, Level, Player, WalkPath};
 
-use bevy::{core::FixedTimestep, prelude::*};
+use bevy::prelude::*;
 
 /// Handles player movement
-/// Currently gets the players WalkPath and executes one move every 0.09 seconds.
 pub struct MovementPlugin;
 
-pub const MOVEMENT_STEP: u64 = 90;
+pub const MOVEMENT_STEP: u64 = 150;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app
-            // .add_stage(
-            //     "fixed_update",
-            //     SystemStage::parallel()
-            //         .with_run_criteria(FixedTimestep::step(0.09).with_label("movement"))
-            // .with_system(move_player),
-            // )
-            .add_system(move_player)
-            .insert_resource(PlayerMovement {
-                last_position: Point::new(1,1),
-                timer: Timer::new(
-                Duration::from_millis(MOVEMENT_STEP),
-                false),
-                locked: false,
-            }
-            );
+        app.add_system(move_player).insert_resource(PlayerMovement {
+            last_position: Point::new(1, 1),
+            timer: Timer::new(Duration::from_millis(MOVEMENT_STEP), false),
+            locked: false,
+        });
     }
 }
 
-pub struct PlayerMovement {
+#[derive(Debug)]
+struct PlayerMovement {
     last_position: Point,
     timer: Timer,
     locked: bool,
-} 
+}
 
 /// Moves player one tile, if requested
 fn move_player(
@@ -71,7 +60,10 @@ fn move_player(
             .unwrap()
             .screen_position();
 
-        *player_transform.translation = *Vec3::from((new.lerp(tile_translation, movement.timer.percent()), player_transform.translation.z));
+        *player_transform.translation = *Vec3::from((
+            new.lerp(tile_translation, movement.timer.percent()),
+            player_transform.translation.z,
+        ));
 
         if movement.timer.finished() {
             movement.locked = false;

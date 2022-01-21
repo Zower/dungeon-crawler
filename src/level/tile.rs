@@ -9,17 +9,10 @@ pub struct Tile {
     pub surface: Surface,
     /// The piece's Position on the board, necessary?
     pub position: Point,
-    pub revealed: ViewedState,
+    pub revealed: bool,
     pub screen_position: Vec2,
     /// Currently always 1, potentially some different terrain etc.
     pub cost: i32,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ViewedState {
-    NotViewed,
-    InView,
-    PreviouslyViewed,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -39,7 +32,7 @@ impl Tile {
         Self {
             surface,
             position,
-            revealed: ViewedState::NotViewed,
+            revealed: false,
             screen_position: Vec2::new(
                 position.x as f32 * TILE_SIZE,
                 position.y as f32 * TILE_SIZE,

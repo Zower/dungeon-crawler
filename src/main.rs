@@ -7,20 +7,16 @@ mod level;
 mod logic;
 mod ui;
 
-use dungeon_crawler_derive::Convar;
 use entity::*;
 use input::*;
 use level::{
-    set_visible, Map, MapBuilder, Point, Size, Surface, TileComponent, ViewedState, WalkPath,
+    FieldOfView, FovPlugin, Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath,
     TILE_SIZE,
 };
 use logic::{CameraPlugin, CollisionPlugin, MovementPlugin};
 use ui::*;
 
 use bevy::prelude::*;
-
-#[derive(Debug, Default, Convar)]
-struct GlobalVision(bool);
 
 /// Holds all the maps currently generated. The 0th element is the starting level, and as the player descends the index increases.
 #[derive(Debug)]
@@ -72,12 +68,8 @@ fn main() {
             cursor_visible: true,
             decorations: true,
         })
-        .insert_resource(ClearColor(Color::rgb(0.52, 0.149, 0.3412)))
-        // .insert_resource(SpriteSettings {
-        //     frustum_culling_enabled: true,
-        // })
+        .insert_resource(ClearColor(Color::rgb(0.15, 0.1, 0.15)))
         .add_plugins(DefaultPlugins)
-        // .add_plugin(EnemyPlugin)
         .add_plugin(KeyboardMovementPlugin)
         .add_plugin(MouseMovementPlugin)
         .add_plugin(CollisionPlugin)
@@ -85,43 +77,9 @@ fn main() {
         .add_plugin(UiPlugin)
         .add_plugin(ConvarPlugin)
         .add_plugin(CameraPlugin)
-        // .add_startup_system(set_icon)
+        .add_plugin(FovPlugin)
         .add_startup_system(setup)
-        .add_system(test_fov)
-        .add_convar_default::<GlobalVision>()
         .run();
-}
-
-fn test_fov(
-    global: Res<GlobalVision>,
-    mut level: ResMut<Level>,
-    player: Query<&Point, With<Player>>,
-    mut map_sprites: Query<(&mut Sprite, &mut Visibility, &TileComponent)>,
-) {
-    let map = level.get_current_mut();
-
-    let player_pos = player.get_single().unwrap();
-    set_visible(map, *player_pos);
-
-    for (mut sprite, mut visibility, pos) in map_sprites.iter_mut() {
-        if global.0 {
-            visibility.is_visible = true;
-        } else {
-            match map.get_tile(&pos.0).unwrap().revealed {
-                ViewedState::NotViewed => {
-                    visibility.is_visible = false;
-                }
-                ViewedState::InView => {
-                    visibility.is_visible = true;
-                    sprite.color = Color::WHITE;
-                }
-                ViewedState::PreviouslyViewed => {
-                    visibility.is_visible = true;
-                    sprite.color = Color::GRAY;
-                }
-            }
-        }
-    }
 }
 
 fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Point {
@@ -131,11 +89,12 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
     let mut map_builder = MapBuilder::new();
     let (map, rooms) = map_builder
         .depth(0)
-        .size(Size::splat(95))
-        .room_size(3..8, 3..8)
-        .nr_rooms(50)
+        .size(Size::splat(50))
+        .room_size(6..14, 6..14)
+        .nr_rooms(22)
         .build();
-    // Spawns the tiles sprites, this is never used for any logic, they are just drawn on the screen.
+
+    // Spawns the tiles sprites
     for row in 0..map.size.width {
         for column in 0..map.size.height {
             let tile = map.get_tile(&Point { x: row, y: column }).unwrap();
@@ -167,13 +126,11 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let safe_player_pos = build_and_insert_map(&mut commands, &asset_server);
 
-    // let texture_char = asset_server.load("chars/new_juniper.png");
     let font = asset_server.load("fonts/PublicPixel.ttf");
 
     // Create the player entity
     commands
         .spawn_bundle(SpriteBundle {
-            // material: materials.add(texture_char.into()),
             texture: asset_server.load("chars/new_juniper.png"),
             transform: Transform {
                 translation: Vec3::new(
@@ -188,6 +145,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Player)
         .insert(safe_player_pos)
         .insert(WalkPath(Vec::<Point>::new()))
+        .insert(FieldOfView::new(6))
         .insert(Health(100));
 
     commands
@@ -221,7 +179,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(SpriteBundle {
             texture: asset_server.load("chars/blob.png"),
-            // material: materials.add(texture_char.into()),
             transform: Transform {
                 translation: Vec3::new(64.0, 32.0, 1.0),
                 ..Default::default()

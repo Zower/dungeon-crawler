@@ -182,6 +182,12 @@ impl Map {
         }
     }
 
+    pub fn update_visibility(&mut self, visible_tiles: &Vec<Point>) {
+        for point in visible_tiles {
+            self.get_tile_mut(point).unwrap().revealed = true;
+        }
+    }
+
     // Get neighbour of a certain tile
     pub fn get_neighbour(&self, tile: &Tile, direction: Direction) -> Option<&Tile> {
         if self.grid.contains(tile) {
@@ -344,13 +350,7 @@ impl Map {
 
     pub fn reveal_all(&mut self) {
         for tile in &mut self.grid {
-            tile.revealed = ViewedState::InView;
-        }
-    }
-
-    pub fn hide_all(&mut self) {
-        for tile in &mut self.grid {
-            tile.revealed = ViewedState::NotViewed;
+            tile.revealed = true;
         }
     }
 

@@ -13,7 +13,7 @@ impl Plugin for CameraPlugin {
             .insert_resource(RequestedCameraPosition {
                 previous_position: Vec3::new(0., 0., 5.),
                 requested_position: Vec3::new(0., 0., 5.),
-                timer: Timer::new(Duration::from_millis(100), false),
+                timer: Timer::new(Duration::from_millis(50), false),
             });
     }
 }
@@ -38,27 +38,26 @@ fn update_camera(
         .translation;
 
     if let Ok(ply_pos) = player_query.get_single() {
-        *cam_pos = ply_pos.translation;
-    //     requested.previous_position = *cam_pos;
+        // *cam_pos = ply_pos.translation;
+        requested.previous_position = *cam_pos;
 
-    //     let trans = &ply_pos.translation;
-    //     requested.requested_position = *trans;
+        let trans = &ply_pos.translation;
+        requested.requested_position = *trans;
 
-    //     requested.timer.reset();
+        requested.timer.reset();
     }
-    // else {
-    //     if !requested.timer.finished() {
-    //         requested.timer.tick(time.delta());
 
-    //         let percent_done = requested.timer.percent();
+    if !requested.timer.finished() {
+        requested.timer.tick(time.delta());
 
-    //         let new = requested
-    //             .previous_position
-    //             .lerp(requested.requested_position, percent_done);
+        let percent_done = requested.timer.percent();
 
-    //         *cam_pos = new;
-    //     }
-    // }
+        let new = requested
+            .previous_position
+            .lerp(requested.requested_position, percent_done);
+
+        *cam_pos = new;
+    }
 }
 
 fn setup(mut commands: Commands) {
