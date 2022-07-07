@@ -5,22 +5,28 @@ mod entity;
 mod input;
 mod level;
 mod logic;
+mod render;
 mod ui;
 
+use std::time::Duration;
+
+use bevy_easings::{Ease, EaseFunction, EasingComponent, EasingType, EasingsPlugin};
 use entity::*;
 use input::*;
 use level::{
     FieldOfView, FovPlugin, Map, MapBuilder, Point, Size, Surface, TileComponent, WalkPath,
     TILE_SIZE,
 };
-use logic::{CameraPlugin, CollisionPlugin, MovementPlugin};
+use logic::{CollisionPlugin, Cursor, MovementPlugin, PlayerHoveredPlugin, SpellPlugin};
+use render::RenderPlugin;
 use ui::*;
 
 use bevy::prelude::*;
 
 /// Holds all the maps currently generated. The 0th element is the starting level, and as the player descends the index increases.
+/// TODO: Consider rewrite as Entity with maps being children
 #[derive(Debug)]
-struct Level {
+pub struct Level {
     maps: Vec<Map>,
     current_map: usize,
 }
@@ -57,10 +63,9 @@ fn main() {
             transparent: false,
             position: None,
             resize_constraints: bevy::window::WindowResizeConstraints {
-                min_width: 50f32,
-                max_width: 1920f32,
-                min_height: 50f32,
-                max_height: 1080f32,
+                min_width: 200f32,
+                min_height: 200f32,
+                ..Default::default()
             },
             scale_factor_override: None,
             mode: bevy::window::WindowMode::Windowed,
@@ -69,16 +74,21 @@ fn main() {
             decorations: true,
         })
         .insert_resource(ClearColor(Color::rgb(0.15, 0.1, 0.15)))
+        // .add_system_set(SystemSet::new().label("test").)
+        .add_plugin(EasingsPlugin)
         .add_plugins(DefaultPlugins)
         .add_plugin(KeyboardMovementPlugin)
-        .add_plugin(MouseMovementPlugin)
+        .add_plugin(MousePlugin)
         .add_plugin(CollisionPlugin)
         .add_plugin(MovementPlugin)
         .add_plugin(UiPlugin)
         .add_plugin(ConvarPlugin)
-        .add_plugin(CameraPlugin)
         .add_plugin(FovPlugin)
+        .add_plugin(PlayerHoveredPlugin)
+        .add_plugin(RenderPlugin)
+        .add_plugin(SpellPlugin)
         .add_startup_system(setup)
+        // .add_system(easing_q)
         .run();
 }
 
@@ -122,11 +132,146 @@ fn build_and_insert_map(commands: &mut Commands, asset_server: &Res<AssetServer>
     rooms.get(0).map(|r| r.center()).unwrap_or(Point::new(1, 1))
 }
 
+// fn easing_q(
+//     mut commands: Commands,
+//     // mut query: Query<(Entity, &mut Sprite), With<Test>>,
+//     mut query: Query<(Entity, &mut Style, &Children), With<Test>>,
+//     mut button_query: Query<&Interaction, With<Button>>,
+//     input: Res<Input<KeyCode>>,
+// ) {
+//     let (ent, style, children) = query.single_mut();
+//     let button = button_query.get_mut(children[0]);
+//     if let Ok(button) = button {
+//         match *button {
+//             Interaction::None => {
+//                 commands.entity(ent).remove::<EasingComponent<Style>>();
+//                 commands.entity(ent).insert(style.clone().ease_to(
+//                     Style {
+//                         size: bevy::prelude::Size::new(Val::Px(64.), Val::Px(96.)),
+//                         position: Rect {
+//                             left: Val::Percent(50.),
+//                             bottom: Val::Percent(5.0),
+//                             ..Default::default()
+//                         },
+//                         ..Default::default()
+//                     },
+//                     EaseFunction::ExponentialOut,
+//                     EasingType::Once {
+//                         duration: Duration::from_millis(400),
+//                     },
+//                 ));
+//                 return;
+//             }
+//             _ => (),
+//         };
+//         info!("{button:?}");
+//         commands.entity(ent).remove::<EasingComponent<Style>>();
+//         commands.entity(ent).insert(style.clone().ease_to(
+//             Style {
+//                 size: bevy::prelude::Size::new(Val::Px(80.), Val::Px(120.)),
+//                 position: Rect {
+//                     left: Val::Percent(50.),
+//                     bottom: Val::Percent(12.5),
+//                     ..Default::default()
+//                 },
+//                 ..Default::default()
+//             },
+//             EaseFunction::ExponentialOut,
+//             EasingType::Once {
+//                 duration: Duration::from_millis(400),
+//             },
+//         ));
+//     } else {
+//     }
+//     // // info!("{entity:?}");
+//     if input.just_pressed(KeyCode::X) {
+//         commands.entity(ent).remove::<EasingComponent<Style>>();
+//         commands.entity(ent).insert(style.clone().ease_to(
+//             Style {
+//                 size: bevy::prelude::Size::new(Val::Px(80.), Val::Px(120.)),
+//                 position: Rect {
+//                     left: Val::Percent(50.),
+//                     bottom: Val::Percent(12.5),
+//                     ..Default::default()
+//                 },
+//                 ..Default::default()
+//             },
+//             EaseFunction::ExponentialOut,
+//             EasingType::Once {
+//                 duration: Duration::from_millis(400),
+//             },
+//         ));
+//     } else if input.just_pressed(KeyCode::O) {
+//         commands.entity(ent).remove::<EasingComponent<Style>>();
+//         commands.entity(ent).insert(style.clone().ease_to(
+//             Style {
+//                 size: bevy::prelude::Size::new(Val::Px(64.), Val::Px(96.)),
+//                 position: Rect {
+//                     left: Val::Percent(50.),
+//                     bottom: Val::Percent(5.0),
+//                     ..Default::default()
+//                 },
+//                 ..Default::default()
+//             },
+//             EaseFunction::ExponentialOut,
+//             EasingType::Once {
+//                 duration: Duration::from_millis(400),
+//             },
+//         ));
+//     }
+// }
+
+#[derive(Component)]
+struct Test;
+
 /// Set up for the initial game state
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let safe_player_pos = build_and_insert_map(&mut commands, &asset_server);
 
     let font = asset_server.load("fonts/PublicPixel.ttf");
+
+    // commands
+    //     .spawn_bundle(NodeBundle {
+    //         style: Style {
+    //             size: bevy::prelude::Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+    //             justify_content: JustifyContent::SpaceBetween,
+    //             ..Default::default()
+    //         },
+    //         color: Color::NONE.into(),
+    //         ..Default::default()
+    //     })
+    //     .with_children(|parent| {
+    //         parent
+    //             .spawn_bundle(ImageBundle {
+    //                 style: Style {
+    //                     position_type: PositionType::Absolute,
+    //                     position: bevy::prelude::Rect {
+    //                         left: Val::Percent(50.),
+    //                         bottom: Val::Percent(5.),
+    //                         ..Default::default()
+    //                     },
+    //                     size: bevy::prelude::Size::new(Val::Px(64.), Val::Px(96.)),
+    //                     ..Default::default()
+    //                 },
+    //                 image: asset_server.load("cards/fireball.png").into(),
+    //                 ..Default::default()
+    //             })
+    //             .insert(Test)
+    //             .with_children(|parent| {
+    //                 parent.spawn_bundle(ButtonBundle {
+    //                     style: Style {
+    //                         size: bevy::prelude::Size::new(Val::Percent(100.), Val::Percent(150.)),
+    //                         // center button
+    //                         margin: Rect::all(Val::Auto),
+    //                         justify_content: JustifyContent::Center,
+    //                         align_items: AlignItems::Center,
+    //                         ..Default::default()
+    //                     },
+    //                     color: Color::NONE.into(),
+    //                     ..Default::default()
+    //                 });
+    //             });
+    //     });
 
     // Create the player entity
     commands
@@ -146,6 +291,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(safe_player_pos)
         .insert(WalkPath(Vec::<Point>::new()))
         .insert(FieldOfView::new(6))
+        .insert(Cursor::new())
         .insert(Health(100));
 
     commands

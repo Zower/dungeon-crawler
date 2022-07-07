@@ -40,10 +40,12 @@ fn process_convar_text_change<T: 'static + Convar + Send + Sync>(
     for text in convar_text.iter() {
         let mut split = text.0.split(" ");
         if split.next() == Some(res.command_name()) {
-            let x = T::Item::into_convar(split.next().unwrap());
-            match x {
-                Some(x) => res.change(x),
-                None => info!("Wrong convar!"),
+            if let Some(next) = split.next() {
+                let value = T::Item::into_convar(next);
+                match value {
+                    Some(value) => res.change(value),
+                    None => info!("Wrong convar!"),
+                }
             }
         }
     }

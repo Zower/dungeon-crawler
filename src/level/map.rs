@@ -215,7 +215,6 @@ impl Map {
     pub fn get_neighbours(&self, position: &Point) -> Vec<&Tile> {
         debug_assert!(self.in_bounds(position));
 
-        // Check that a valid reference was passed
         let mut neighbours = Vec::new();
         // Left neighbour potential point
         let mut neighbour_point = Point {

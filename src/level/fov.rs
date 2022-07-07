@@ -1,21 +1,16 @@
 use std::ops::Add;
 
 use bevy::prelude::*;
-use dungeon_crawler_derive::Convar;
 
-use crate::{
-    entity::Player,
-    input::{AddConvar, Convar},
-    Level,
-};
+use crate::{entity::Player, Level};
 
-use super::{Map, Point, TileComponent};
+use super::{Map, Point};
 
 /// What something can currently see.
 #[derive(Debug, Component)]
 pub struct FieldOfView {
-    range: i32,
-    tiles: Vec<Point>,
+    pub range: i32,
+    pub tiles: Vec<Point>,
 }
 
 impl FieldOfView {
@@ -31,41 +26,18 @@ pub struct FovPlugin;
 
 impl Plugin for FovPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_convar_default::<GlobalVision>()
-            .add_system(player_fov);
+        app.add_system(player_fov);
     }
 }
 
-#[derive(Debug, Default, Convar)]
-struct GlobalVision(bool);
-
 fn player_fov(
-    global: Res<GlobalVision>,
     mut level: ResMut<Level>,
     mut player_query: Query<(&Point, &mut FieldOfView), With<Player>>,
-    mut map_sprites_query: Query<(&mut Sprite, &mut Visibility, &TileComponent)>,
 ) {
     let map = level.get_current_mut();
 
-    let (player_pos, mut player_fov) = player_query.get_single_mut().unwrap();
+    let (player_pos, mut player_fov) = player_query.single_mut();
     update_visible(map, *player_pos, &mut player_fov);
-
-    for (mut sprite, mut visibility, pos) in map_sprites_query.iter_mut() {
-        if global.0 {
-            visibility.is_visible = true;
-        } else {
-            if player_fov.tiles.contains(&pos.0) || pos.0 == *player_pos {
-                visibility.is_visible = true;
-                sprite.color = Color::WHITE;
-            } else if map.get_tile(&pos.0).unwrap().revealed {
-                sprite.color = Color::GRAY;
-            } else {
-                visibility.is_visible = false;
-            }
-        }
-    }
-
-    map.update_visibility(&player_fov.tiles);
 }
 
 pub fn update_visible(map: &Map, init_position: Point, fov: &mut FieldOfView) {
