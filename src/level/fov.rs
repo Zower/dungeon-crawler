@@ -1,20 +1,26 @@
 use std::ops::Add;
 
 use bevy::prelude::*;
+use bevy_ecs_tilemap::{MapQuery, Tile, TilePos};
 
-use crate::{entity::Player, Level};
+use crate::{
+    entity::{PassiveTilePos, Player},
+    ActiveState, GameState,
+};
 
-use super::{Map, Point};
+use iyes_loopless::prelude::*;
+
+use super::Wall;
 
 /// What something can currently see.
 #[derive(Debug, Component)]
 pub struct FieldOfView {
-    pub range: i32,
-    pub tiles: Vec<Point>,
+    pub range: u32,
+    pub tiles: Vec<TilePos>,
 }
 
 impl FieldOfView {
-    pub fn new(range: i32) -> Self {
+    pub fn new(range: u32) -> Self {
         Self {
             range,
             tiles: vec![],
@@ -25,47 +31,85 @@ impl FieldOfView {
 pub struct FovPlugin;
 
 impl Plugin for FovPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(player_fov);
+    fn build(&self, app: &mut App) {
+        app.add_system(
+            player_fov
+                .run_in_state(ActiveState::Playing)
+                .run_not_in_state(GameState::GeneratingMap),
+        );
     }
 }
 
+// TODO: Improve this greatly. Performance can certainly be improved.
 fn player_fov(
-    mut level: ResMut<Level>,
-    mut player_query: Query<(&Point, &mut FieldOfView), With<Player>>,
+    map: MapQuery,
+    wall_q: Query<(Entity, &mut Tile), With<Wall>>,
+    floor_q: Query<&mut Tile, Without<Wall>>,
+    // mut level: ResMut<Level>,
+    mut player_query: Query<
+        (&PassiveTilePos, &mut FieldOfView),
+        (With<Player>, Changed<PassiveTilePos>),
+    >,
 ) {
-    let map = level.get_current_mut();
-
-    let (player_pos, mut player_fov) = player_query.single_mut();
-    update_visible(map, *player_pos, &mut player_fov);
+    if let Ok((player_pos, mut player_fov)) = player_query.get_single_mut() {
+        update_visible(map, **player_pos, &mut player_fov, wall_q, floor_q);
+    }
 }
 
-pub fn update_visible(map: &Map, init_position: Point, fov: &mut FieldOfView) {
+pub fn update_visible(
+    mut map: MapQuery,
+    init_position: TilePos,
+    fov: &mut FieldOfView,
+    mut wall_q: Query<(Entity, &mut Tile), With<Wall>>,
+    mut floor_q: Query<&mut Tile, Without<Wall>>,
+) {
     fov.tiles.clear();
     for octant in 0..=7 {
-        update_visible_octant(octant, map, init_position, fov);
+        update_visible_octant(octant, &mut map, init_position, fov, &wall_q);
+    }
+
+    for pos in &fov.tiles {
+        let ent = map.get_tile_entity(*pos, 0, 0).unwrap();
+        if let Ok(mut tile) = floor_q.get_mut(ent) {
+            tile.visible = true;
+            map.notify_chunk_for_tile(*pos, 0u16, 0u16);
+        } else if let Ok((_, mut tile)) = wall_q.get_mut(ent) {
+            tile.visible = true;
+            map.notify_chunk_for_tile(*pos, 0u16, 0u16);
+        }
     }
 }
 
-fn update_visible_octant(octant: u8, map: &Map, init_position: Point, fov: &mut FieldOfView) {
+fn update_visible_octant(
+    octant: u8,
+    map: &mut MapQuery,
+    init_position: TilePos,
+    fov: &mut FieldOfView,
+    wall_q: &Query<(Entity, &mut Tile), With<Wall>>,
+) {
     let mut blocked_fov = BlockedFov::new();
-    for row in 1..fov.range {
-        if !map.in_bounds(
-            &(init_position + BlockedFov::rotate_for_octant(OctantPoint::new(row, 0), octant)),
-        ) {
+    for row in 1..fov.range as i32 {
+        if map
+            .get_tile_entity(
+                init_position + BlockedFov::rotate_for_octant(OctantTilePos::new(row, 0), octant),
+                0,
+                0,
+            )
+            .is_err()
+        {
             break;
         }
 
         for col in 0..=row {
             let pos =
-                init_position + BlockedFov::rotate_for_octant(OctantPoint::new(row, col), octant);
+                init_position + BlockedFov::rotate_for_octant(OctantTilePos::new(row, col), octant);
 
-            if !map.in_bounds(&pos) {
+            if map.get_tile_entity(pos, 0, 0).is_err() {
                 break;
             }
 
             if !blocked_fov.is_fully_blocked() {
-                let blocker = ShadowBorder::new(OctantPoint::new(row, col));
+                let blocker = ShadowBorder::new(OctantTilePos::new(row, col));
 
                 let visible = !blocked_fov.is_not_viewable(&blocker);
 
@@ -73,7 +117,7 @@ fn update_visible_octant(octant: u8, map: &Map, init_position: Point, fov: &mut 
                     fov.tiles.push(pos);
                 }
 
-                if visible && map.get_tile(&pos).unwrap().is_wall() {
+                if visible && wall_q.contains(map.get_tile_entity(pos, 0, 0).unwrap()) {
                     blocked_fov.add_blocker(blocker);
                 }
             }
@@ -131,20 +175,20 @@ impl BlockedFov {
     }
 
     /// Panics if octant is not in 0..=7
-    pub fn rotate_for_octant(point: OctantPoint, octant: u8) -> OctantPoint {
+    pub fn rotate_for_octant(pos: OctantTilePos, octant: u8) -> OctantTilePos {
         let (x, y) = match octant {
-            0 => (point.0.y, point.0.x),
-            1 => (point.0.x, point.0.y),
-            2 => (point.0.x, -point.0.y),
-            3 => (point.0.y, -point.0.x),
-            4 => (-point.0.y, -point.0.x),
-            5 => (-point.0.x, -point.0.y),
-            6 => (-point.0.x, point.0.y),
-            7 => (-point.0.y, point.0.x),
+            0 => (pos.1, pos.0),
+            1 => (pos.0, pos.1),
+            2 => (pos.0, -pos.1),
+            3 => (pos.1, -pos.0),
+            4 => (-pos.1, -pos.0),
+            5 => (-pos.0, -pos.1),
+            6 => (-pos.0, pos.1),
+            7 => (-pos.1, pos.0),
             _ => panic!("Octants may only be rotated 360 degrees, octant should be in range 0..=7"),
         };
 
-        OctantPoint::new(x, y)
+        OctantTilePos::new(x, y)
     }
 }
 
@@ -156,10 +200,10 @@ pub struct ShadowBorder {
 }
 
 impl ShadowBorder {
-    pub fn new(point: OctantPoint) -> Self {
+    pub fn new(pos: OctantTilePos) -> Self {
         Self {
-            start: point.0.y as f32 / (point.0.x + 2) as f32,
-            end: (point.0.y + 1) as f32 / (point.0.x + 1) as f32,
+            start: pos.1 as f32 / (pos.1 + 2) as f32,
+            end: (pos.1 + 1) as f32 / (pos.1 + 1) as f32,
         }
     }
 
@@ -168,19 +212,32 @@ impl ShadowBorder {
     }
 }
 
-/// A point in an FOV octant. Origin is 0, 0 no matter where the entity being calculated on is.
-pub struct OctantPoint(Point);
+/// A TilePos in an FOV octant. Origin is 0, 0 no matter where the entity being calculated on is.
+#[derive(Debug)]
+pub struct OctantTilePos(pub i32, pub i32);
 
-impl OctantPoint {
+impl OctantTilePos {
     pub fn new(x: i32, y: i32) -> Self {
-        Self(Point::new(x, y))
+        Self(x, y)
     }
 }
 
-impl Add<OctantPoint> for Point {
+impl Add<OctantTilePos> for TilePos {
     type Output = Self;
 
-    fn add(self, rhs: OctantPoint) -> Self::Output {
-        Self::new(self.x + rhs.0.x, self.y + rhs.0.y)
+    fn add(self, rhs: OctantTilePos) -> Self::Output {
+        let x = if rhs.0.is_negative() {
+            self.0.saturating_sub(rhs.0.wrapping_abs() as u32)
+        } else {
+            self.0.saturating_add(rhs.0 as u32)
+        };
+
+        let y = if rhs.1.is_negative() {
+            self.1.saturating_sub(rhs.1.wrapping_abs() as u32)
+        } else {
+            self.1.saturating_add(rhs.1 as u32)
+        };
+
+        Self(x, y)
     }
 }

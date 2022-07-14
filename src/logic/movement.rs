@@ -1,82 +1,115 @@
-use std::time::Duration;
+use crate::{
+    entity::PassiveTilePos,
+    util::{tile_from_trans, PlayerQuery},
+    ActiveState, GameState,
+};
 
-use crate::{level::Point, Blob, Level, Player, WalkPath};
+use bevy::{math::Vec3Swizzles, prelude::*};
+use bevy_rapier2d::{plugin::RapierConfiguration, prelude::Velocity};
+use iyes_loopless::prelude::*;
+use leafwing_input_manager::{plugin::InputManagerPlugin, prelude::ActionState, Actionlike};
+use strum::EnumString;
 
-use bevy::prelude::*;
+#[derive(Actionlike, Debug, Component, Clone, Copy, EnumString)]
+#[strum(ascii_case_insensitive)]
+pub enum MovementAction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
 
-/// Handles player movement
+/// Handles all movement
 pub struct MovementPlugin;
-
-pub const MOVEMENT_STEP: u64 = 150;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(move_player).insert_resource(PlayerMovement {
-            last_position: Point::new(1, 1),
-            timer: Timer::new(Duration::from_millis(MOVEMENT_STEP), false),
-            locked: false,
-        });
+        app.add_plugin(InputManagerPlugin::<MovementAction>::default())
+            // .add_system_to_stage(GameStage::Input, update_player_velocity)
+            // .add_system(update_tilepos_transforms)
+            .add_system(
+                update_player_velocity
+                    .run_in_state(ActiveState::Playing)
+                    .run_in_state(GameState::FreeRoam),
+            )
+            // .add_enter_system(PauseState::Paused, set_vel_zero)
+            .add_enter_system(ActiveState::Paused, pause_physics)
+            .add_exit_system(ActiveState::Paused, resume_physics)
+            // )
+            // .add_system(move_ent_with_transform.after(update_player_velocity))
+            //TODO after
+            .add_system(update_player_tilepos);
     }
 }
 
-#[derive(Debug)]
-struct PlayerMovement {
-    last_position: Point,
-    timer: Timer,
-    locked: bool,
+fn update_player_tilepos(mut query: Query<(&Transform, &mut PassiveTilePos), Changed<Transform>>) {
+    for (transform, mut pos) in query.iter_mut() {
+        **pos = tile_from_trans(&transform.translation.xy());
+    }
+
+    //     info!("Player tilepos: {:?}", pos);
 }
 
-/// Moves player one tile, if requested
-fn move_player(
-    levels: Res<Level>,
-    mut query: QuerySet<(
-        QueryState<(&mut WalkPath, &mut Transform, &mut Point), With<Player>>,
-        QueryState<(&mut Transform, &mut Point), With<Blob>>,
-    )>,
-    mut movement: ResMut<PlayerMovement>,
-    time: Res<Time>,
+fn update_player_velocity(
+    mut player_query: PlayerQuery<(&mut Velocity, &ActionState<MovementAction>)>,
 ) {
-    let mut q0 = query.q0();
-    let (mut player_path, mut player_transform, mut player_position) = q0.single_mut();
-    if !player_path.0.is_empty() && !movement.locked {
-        let next_tile = player_path.0.remove(0);
-        movement.last_position = *player_position;
-        *player_position = next_tile;
+    let (mut vel, action_state) = player_query.single_mut();
 
-        movement.timer.reset();
-        movement.locked = true;
-    } else if movement.locked {
-        movement.timer.tick(time.delta());
+    let speed = 130.;
 
-        let tile_translation = levels
-            .get_current()
-            .get_tile(&player_position)
-            .unwrap()
-            .screen_position();
+    let mut input = Vec2::ZERO;
 
-        let new = levels
-            .get_current()
-            .get_tile(&movement.last_position)
-            .unwrap()
-            .screen_position();
-
-        *player_transform.translation = *Vec3::from((
-            new.lerp(tile_translation, movement.timer.percent()),
-            player_transform.translation.z,
-        ));
-
-        if movement.timer.finished() {
-            movement.locked = false;
-
-            let last = movement.last_position;
-            movement.last_position = *player_position;
-
-            let mut q1 = query.q1();
-            let (mut blob_transform, mut blob_position) = q1.single_mut();
-            blob_transform.translation.x = new.x;
-            blob_transform.translation.y = new.y;
-
-            *blob_position = last;
-        }
+    if action_state.pressed(MovementAction::Up) {
+        // input.y += speed * TILE_SIZE * time.delta_seconds();
+        input.y += 1.;
     }
+    if action_state.pressed(MovementAction::Left) {
+        // input.x -= speed * TILE_SIZE * time.delta_seconds();
+        input.x -= 1.;
+    }
+    if action_state.pressed(MovementAction::Down) {
+        // input.y -= speed * TILE_SIZE * time.delta_seconds();
+        input.y -= 1.;
+    }
+    if action_state.pressed(MovementAction::Right) {
+        // input.x += speed * TILE_SIZE * time.delta_seconds();
+        input.x += 1.;
+    }
+
+    if input.length() != 0. {
+        input /= input.length();
+    }
+
+    vel.linvel = input * speed;
 }
+
+fn pause_physics(mut config: ResMut<RapierConfiguration>) {
+    config.physics_pipeline_active = false;
+}
+
+fn resume_physics(mut config: ResMut<RapierConfiguration>) {
+    config.physics_pipeline_active = true;
+}
+
+// fn move_ent_with_transform(
+//     mut vel_query: Query<(&mut Velocity, &mut Transform)>,
+//     // map_query: Query<&TilePos, With<Wall>>,
+// ) {
+//     for (velocity, mut transform) in vel_query.iter_mut() {
+//         // let potential = Vec3::new(
+//         //     transform.translation.x + velocity.x,
+//         //     transform.translation.y + velocity.y,
+//         //     transform.translation.z,
+//         // );
+
+//         // let new_tile = tile_from_trans(&potential);
+
+//         // if !map_query.iter().any(|&tile_pos| tile_pos == new_tile) {
+//         transform.translation.x += velocity.x;
+//         transform.translation.y += velocity.y;
+//         // }
+
+//         // transform.translation.x += velocity.x;
+//         // transform.translation.y += velocity.y;
+//     }
+// }

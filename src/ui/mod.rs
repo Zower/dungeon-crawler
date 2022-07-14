@@ -4,4 +4,5 @@ mod fps;
 mod misc;
 mod plugin;
 
+pub use console::*;
 pub use plugin::UiPlugin;

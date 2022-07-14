@@ -4,9 +4,9 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-use dungeon_crawler_derive::Convar;
+use bevy_console::ConsoleCommand;
 
-use crate::input::{AddConvar, Convar};
+use super::console::AddConvar;
 
 /// The plugin representing the FPS UI element
 pub struct FPSPlugin;
@@ -17,7 +17,7 @@ impl Plugin for FPSPlugin {
             .add_startup_system(setup)
             .add_system(update_text)
             .add_system(toggle_visibility)
-            .add_convar_default::<UiFps>();
+            .add_convar(UiFps { on: true });
     }
 }
 
@@ -25,8 +25,12 @@ impl Plugin for FPSPlugin {
 #[derive(Debug, Component)]
 struct FPSText;
 
-#[derive(Debug, Default, Convar)]
-struct UiFps(bool);
+#[derive(Debug, Default, ConsoleCommand)]
+#[console_command(name = "fps")]
+/// Toggles FPS counter
+struct UiFps {
+    on: bool,
+}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -62,11 +66,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..Default::default()
             },
-            visibility: Visibility { is_visible: false },
+            visibility: Visibility { is_visible: true },
             ..Default::default()
         })
-        .insert(FPSText)
-        .insert(Timer::from_seconds(0.1, true));
+        .insert(FPSText);
+    // .insert(Timer::from_seconds(0.1, true));
 }
 
 /// System that checks if visibility should be toggled based on UiFps Convar.
@@ -74,18 +78,18 @@ fn toggle_visibility(
     fps_toggled: Res<UiFps>,
     mut fps_text_query: Query<&mut Visibility, With<FPSText>>,
 ) {
-    fps_text_query.single_mut().is_visible = fps_toggled.0;
+    fps_text_query.single_mut().is_visible = fps_toggled.on;
 }
 
 /// System that updates the FPS values, if FPStimer is finished and text is visible
 fn update_text(
-    time: Res<Time>,
     diagnostics: Res<Diagnostics>,
-    mut fps_text_query: Query<(&mut Text, &Visibility, &mut Timer), With<FPSText>>,
+    mut fps_text_query: Query<(&mut Text, &Visibility), With<FPSText>>,
 ) {
-    let (mut text, visible, mut timer) = fps_text_query.single_mut();
+    let (mut text, visible) = fps_text_query.single_mut();
     // Check if its time to update the FPS
-    if visible.is_visible && timer.tick(time.delta()).just_finished() {
+    if visible.is_visible {
+        // && timer.tick(time.delta()).just_finished() {
         if let Some(diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(mut value) = diagnostic.value() {
                 if let Some(mut avg) = diagnostic.average() {

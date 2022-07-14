@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-
-use crate::{input::CurrentMousePosition, level::Point};
+use bevy_ecs_tilemap::TilePos;
 
 use super::Spell;
+use crate::input::CurrentMousePosition;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpellCast {
-    pub position: Point,
+    pub position: TilePos,
     pub spell: Spell,
 }
 
@@ -16,7 +16,7 @@ pub fn cast_spell(
     mut writer: EventWriter<SpellCast>,
     hovered: Res<CurrentMousePosition>,
 ) {
-    if let Some(hovered) = hovered.position() {
+    if let Some(hovered) = **hovered {
         if input.just_pressed(KeyCode::Key1) {
             writer.send(SpellCast {
                 position: hovered,

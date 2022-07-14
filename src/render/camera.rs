@@ -1,15 +1,18 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::Camera2d};
+use bevy_console::ConsoleCommand;
 
-use crate::entity::Player;
+use crate::{entity::Player, ui::AddConvar};
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
+    fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(update_camera)
+            .add_convar(ScaleCommand { scale: 0.5 })
+            .add_system(update_scale)
             .insert_resource(RequestedCameraPosition {
                 previous_position: Vec3::new(0., 0., 5.),
                 requested_position: Vec3::new(0., 0., 5.),
@@ -27,15 +30,10 @@ struct RequestedCameraPosition {
 fn update_camera(
     mut requested: ResMut<RequestedCameraPosition>,
     player_query: Query<&Transform, (With<Player>, Changed<Transform>)>,
-    mut cam_query: Query<(&bevy::render::camera::Camera, &mut Transform), Without<Player>>,
+    mut cam_query: Query<&mut Transform, (Without<Player>, With<Camera2d>)>,
     time: Res<Time>,
 ) {
-    let cam_pos = &mut cam_query
-        .iter_mut()
-        .find(|(cam, _)| cam.name == Some(String::from("camera_2d")))
-        .unwrap()
-        .1
-        .translation;
+    let cam_pos = &mut cam_query.single_mut().translation;
 
     if let Ok(ply_pos) = player_query.get_single() {
         // *cam_pos = ply_pos.translation;
@@ -60,10 +58,31 @@ fn update_camera(
     }
 }
 
+fn update_scale(
+    mut cam_query: Query<&mut OrthographicProjection, With<Camera2d>>,
+    scale: Res<ScaleCommand>,
+) {
+    if !scale.is_changed() {
+        return;
+    }
+
+    let mut projection = cam_query.single_mut();
+
+    projection.scale = scale.scale as f32;
+}
+
 fn setup(mut commands: Commands) {
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
-    commands.spawn_bundle(camera);
+    // let mut camera = OrthographicCameraBundle::new_2d();
+    // camera.transform = Transform::from_translation(Vec3::new(0.0, 0.0, 5.0));
+    // commands.spawn_bundle(camera);
 
     commands.spawn_bundle(UiCameraBundle::default());
+}
+
+/// Adjust camera scale
+#[derive(ConsoleCommand)]
+#[console_command(name = "r_scale")]
+struct ScaleCommand {
+    /// The scale to set. Default is 1.
+    scale: f64,
 }

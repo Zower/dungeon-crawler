@@ -1,12 +1,12 @@
 use crate::entity::Health;
-use crate::level::Point;
-use bevy::app::Events;
+use bevy::ecs::event::Events;
 use bevy::ecs::world::EntityMut;
 use bevy::prelude::*;
+use bevy_ecs_tilemap::TilePos;
 
 // use super::cast_spell::SpellCast;
 use super::cast_spell::{self, SpellCast};
-use super::Cursor;
+use super::TileCursor;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Spell {
@@ -33,10 +33,10 @@ impl Spell {
 
 fn recieved_spell(world: &mut World) {
     let entities = world
-        .query::<(Entity, &Point)>()
+        .query::<(Entity, &TilePos)>()
         .iter(&world)
         .map(|(e, p)| (e, *p))
-        .collect::<Vec<(Entity, Point)>>();
+        .collect::<Vec<(Entity, TilePos)>>();
 
     let spells_sent = world.get_resource::<Events<SpellCast>>().unwrap();
 
@@ -48,7 +48,7 @@ fn recieved_spell(world: &mut World) {
 
     for spell in casts {
         // TODO: Same r everywhere
-        let circle = Cursor::draw_circle(&spell.position, 2)
+        let circle = TileCursor::draw_circle(&spell.position, 2)
             .into_iter()
             .collect::<Vec<_>>();
 

@@ -1,37 +1,32 @@
 use bevy::prelude::*;
+use bevy_ecs_tilemap::{MapQuery, TilePos};
+use iyes_loopless::prelude::*;
 
-use crate::{
-    entity::Player,
-    input::CurrentMousePosition,
-    level::{Map, Point, Size, Tile},
-};
+use crate::{entity::Player, input::CurrentMousePosition, ActiveState, GameState};
 
-#[derive(Debug, Component, Clone, Copy)]
-pub struct Cursor {
-    hovered: Option<Hovered>,
-}
+#[derive(Debug, Deref, DerefMut, Component, Clone, Copy)]
+pub struct TileCursor(Option<TilePos>);
 
-impl Cursor {
+impl TileCursor {
     pub fn new() -> Self {
-        Self { hovered: None }
+        Self(None)
     }
 
-    pub fn rect<'a>(&self, map: &'a Map, size: Size) -> Option<Vec<&'a Tile>> {
-        debug_assert!(size.width % 2 == 0);
-        debug_assert!(size.height % 2 == 0);
-        return if let Some(hovered) = &self.hovered {
+    pub fn rect(&self, mut map: MapQuery, size: Size<u32>) -> Option<Vec<TilePos>> {
+        // debug_assert!(size.width % 2 == 0);
+        // debug_assert!(size.height % 2 == 0);
+        return if let Some(hovered) = &self.0 {
             // - self.pos, impl sub for point
-            let initial_pos = Point::new(
-                hovered.position.x - ((size.width as f32 - 2.) / 2.).ceil() as i32,
-                hovered.position.y - ((size.height as f32 - 2.) / 2.).ceil() as i32,
+            let initial_pos = TilePos(
+                hovered.0 - ((size.width as f32 - 2.) / 2.).ceil() as u32,
+                hovered.1 - ((size.height as f32 - 2.) / 2.).ceil() as u32,
             );
 
             let mut tiles = vec![];
-            for x in initial_pos.x..initial_pos.x + size.width {
-                for y in initial_pos.y..initial_pos.y + size.height {
-                    let tile = map.get_tile(&Point::new(x, y));
-                    if let Some(tile) = tile {
-                        tiles.push(tile);
+            for x in initial_pos.0..initial_pos.0 + size.width {
+                for y in initial_pos.1..initial_pos.1 + size.height {
+                    if map.get_tile_entity(TilePos(x, y), 0, 0).is_ok() {
+                        tiles.push(TilePos(x, y));
                     }
                 }
             }
@@ -42,24 +37,24 @@ impl Cursor {
         };
     }
 
-    pub fn circle(&self, r: i32) -> Option<Vec<Point>> {
-        return if let Some(hovered) = &self.hovered {
-            Some(Self::draw_circle(&hovered.position, r))
+    pub fn circle(&self, r: u32) -> Option<Vec<TilePos>> {
+        return if let Some(hovered) = &self.0 {
+            Some(Self::draw_circle(hovered, r))
         } else {
             None
         };
     }
 
-    pub fn draw_circle(position: &Point, r: i32) -> Vec<Point> {
+    pub fn draw_circle(position: &TilePos, r: u32) -> Vec<TilePos> {
         let mut tiles = vec![];
         let mut i = 1;
-        for y in (position.y - r)..=(position.y + r) {
-            for x in (position.x - i)..=(position.x + i) {
-                tiles.push(Point::new(x, y));
+        for y in (position.1 - r)..=(position.1 + r) {
+            for x in (position.0 - i)..=(position.0 + i) {
+                tiles.push(TilePos(x, y));
             }
-            if y >= position.y + 1 {
+            if y >= position.1 + 1 {
                 i -= 1;
-            } else if y < position.y - 1 {
+            } else if y < position.1 - 1 {
                 i += 1;
             }
         }
@@ -68,23 +63,23 @@ impl Cursor {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Hovered {
-    position: Point,
-}
-
+//TODO: doesnt need to be a plugin
 pub struct PlayerHoveredPlugin;
 
 impl Plugin for PlayerHoveredPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(hovered_player_system);
+    fn build(&self, app: &mut App) {
+        app.add_system(
+            hovered_player_system
+                .run_in_state(ActiveState::Playing)
+                .run_not_in_state(GameState::GeneratingMap),
+        );
     }
 }
 
 fn hovered_player_system(
-    mut player_query: Query<&mut Cursor, With<Player>>,
+    mut player_query: Query<&mut TileCursor, With<Player>>,
     mouse_position: Res<CurrentMousePosition>,
 ) {
     let mut player_cursor = player_query.single_mut();
-    player_cursor.hovered = mouse_position.position().map(|p| Hovered { position: p });
+    *player_cursor = TileCursor(**mouse_position);
 }
