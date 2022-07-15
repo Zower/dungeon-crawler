@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::TilePos;
 
-use super::Spell;
-use crate::input::CurrentMousePosition;
+use super::{mouse::CurrentMousePosition, Spell};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpellCast {

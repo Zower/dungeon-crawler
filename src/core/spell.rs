@@ -1,4 +1,4 @@
-use crate::entity::Health;
+use crate::components::Health;
 use bevy::ecs::event::Events;
 use bevy::ecs::world::EntityMut;
 use bevy::prelude::*;

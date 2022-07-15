@@ -2,8 +2,9 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::Camera2d};
 use bevy_console::ConsoleCommand;
+use bevy_inspector_egui::Inspectable;
 
-use crate::{entity::Player, ui::AddConvar};
+use crate::{components::Player, ui::AddConvar};
 
 pub struct CameraPlugin;
 
@@ -11,7 +12,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(update_camera)
-            .add_convar(ScaleCommand { scale: 0.5 })
+            .add_convar(ScaleCommand { scale: 0.35 })
             .add_system(update_scale)
             .insert_resource(RequestedCameraPosition {
                 previous_position: Vec3::new(0., 0., 5.),
@@ -80,9 +81,9 @@ fn setup(mut commands: Commands) {
 }
 
 /// Adjust camera scale
-#[derive(ConsoleCommand)]
+#[derive(ConsoleCommand, Inspectable)]
 #[console_command(name = "r_scale")]
-struct ScaleCommand {
+pub struct ScaleCommand {
     /// The scale to set. Default is 1.
     scale: f64,
 }

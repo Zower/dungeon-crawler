@@ -1,7 +1,9 @@
 //! Rendering/drawing logic like lighting, map visibility.
+//! TODO: Remove.
 
 mod camera;
-mod map;
+
+pub use camera::*;
 
 use bevy::prelude::*;
 use bevy_console::ConsoleCommand;
@@ -9,14 +11,13 @@ use bevy_rapier2d::prelude::DebugRenderContext;
 
 use crate::ui::AddConvar;
 
-use self::{camera::CameraPlugin, map::MapPlugin};
+use self::camera::CameraPlugin;
 
 pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(CameraPlugin)
-            .add_plugin(MapPlugin)
             .add_convar(DebugRenderConvar { on: false })
             .add_system(sync_debug_render_convar);
     }

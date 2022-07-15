@@ -4,13 +4,13 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::{MapQuery, Tile, TilePos};
 
 use crate::{
-    entity::{PassiveTilePos, Player},
+    components::{PassiveTilePos, Player},
     ActiveState, GameState,
 };
 
 use iyes_loopless::prelude::*;
 
-use super::Wall;
+use super::{TilePaint, Wall};
 
 /// What something can currently see.
 #[derive(Debug, Component)]
@@ -28,6 +28,9 @@ impl FieldOfView {
     }
 }
 
+#[derive(SystemLabel, Clone, Hash, Debug, Eq, PartialEq)]
+pub struct FovCalculationLabel;
+
 pub struct FovPlugin;
 
 impl Plugin for FovPlugin {
@@ -35,16 +38,43 @@ impl Plugin for FovPlugin {
         app.add_system(
             player_fov
                 .run_in_state(ActiveState::Playing)
-                .run_not_in_state(GameState::GeneratingMap),
+                .run_not_in_state(GameState::GeneratingMap)
+                .label(FovCalculationLabel),
+        )
+        .add_system(
+            update_tile_paint
+                .run_in_state(ActiveState::Playing)
+                .run_not_in_state(GameState::GeneratingMap)
+                .after(FovCalculationLabel),
         );
     }
 }
 
-// TODO: Improve this greatly. Performance can certainly be improved.
+fn update_tile_paint(
+    mut player_query: Query<&FieldOfView, (With<Player>, Changed<PassiveTilePos>)>,
+    mut map: MapQuery,
+    mut tile_query: Query<&mut TilePaint>,
+) {
+    if let Ok(fov) = player_query.get_single_mut() {
+        // for mut tile in tile_query.iter_mut() {
+        //     if *tile == TilePaint::Visible {
+        //         *tile = TilePaint::PreviouslySeen;
+        //     }
+        // }
+
+        for tile in &fov.tiles {
+            if let Ok(ent) = map.get_tile_entity(*tile, 0, 0) {
+                let mut current = tile_query.get_mut(ent).unwrap();
+                *current = current.greater_of(TilePaint::Visible)
+            }
+        }
+    }
+}
+
+// TODO: Improve this and all subsequent functions greatly. Performance can certainly be improved.
 fn player_fov(
     map: MapQuery,
     wall_q: Query<(Entity, &mut Tile), With<Wall>>,
-    floor_q: Query<&mut Tile, Without<Wall>>,
     // mut level: ResMut<Level>,
     mut player_query: Query<
         (&PassiveTilePos, &mut FieldOfView),
@@ -52,7 +82,7 @@ fn player_fov(
     >,
 ) {
     if let Ok((player_pos, mut player_fov)) = player_query.get_single_mut() {
-        update_visible(map, **player_pos, &mut player_fov, wall_q, floor_q);
+        update_visible(map, **player_pos, &mut player_fov, wall_q);
     }
 }
 
@@ -60,24 +90,13 @@ pub fn update_visible(
     mut map: MapQuery,
     init_position: TilePos,
     fov: &mut FieldOfView,
-    mut wall_q: Query<(Entity, &mut Tile), With<Wall>>,
-    mut floor_q: Query<&mut Tile, Without<Wall>>,
+    wall_q: Query<(Entity, &mut Tile), With<Wall>>,
 ) {
     fov.tiles.clear();
     for octant in 0..=7 {
         update_visible_octant(octant, &mut map, init_position, fov, &wall_q);
     }
-
-    for pos in &fov.tiles {
-        let ent = map.get_tile_entity(*pos, 0, 0).unwrap();
-        if let Ok(mut tile) = floor_q.get_mut(ent) {
-            tile.visible = true;
-            map.notify_chunk_for_tile(*pos, 0u16, 0u16);
-        } else if let Ok((_, mut tile)) = wall_q.get_mut(ent) {
-            tile.visible = true;
-            map.notify_chunk_for_tile(*pos, 0u16, 0u16);
-        }
-    }
+    fov.tiles.push(init_position);
 }
 
 fn update_visible_octant(

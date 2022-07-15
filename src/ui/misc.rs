@@ -1,6 +1,6 @@
 //! Various UI functions
 use crate::{
-    entity::{Health, HealthText},
+    components::{Health, HealthText},
     util::PlayerQuery,
     ActiveState, GameState,
 };

@@ -6,10 +6,12 @@ use rand::Rng;
 use std::cmp::{max, min, Ordering};
 use std::ops::Range;
 
-use crate::level::{Floor, Wall};
-use crate::util::{tile_from_trans, CHUNK_SIZE, TILE_SIZE};
+use crate::map::{Floor, TilePaint, Wall};
+use crate::util::{CHUNK_SIZE, TILE_SIZE};
 
 use bevy::prelude::*;
+
+use super::{Room, TileRect};
 
 /// Create tilemaps.
 pub struct MapBuilder {
@@ -62,7 +64,7 @@ impl MapBuilder {
     // }
 
     /// Build a random map.
-    pub fn build(&self, commands: &mut Commands) -> (LayerBuilder<TileBundle>, Rect2) {
+    pub fn build(&self, commands: &mut Commands) -> (LayerBuilder<TileBundle>, Room) {
         debug!(
             "Generating map with size: x: {:?}, y: {:?}",
             self.map_size.0, self.map_size.1
@@ -90,7 +92,7 @@ impl MapBuilder {
         });
 
         let mut rng = rand::thread_rng();
-        let mut rooms: Vec<Rect2> = Vec::new();
+        let mut rooms: Vec<TileRect> = Vec::new();
 
         for _ in 1..=self.nr_rooms {
             let w = rng.gen_range(self.room_size_range_x.clone());
@@ -98,7 +100,7 @@ impl MapBuilder {
             let x = rng.gen_range(1..self.map_size.0 * CHUNK_SIZE - w - 1);
             let y = rng.gen_range(1..self.map_size.1 * CHUNK_SIZE - h - 1);
 
-            let new_room = Rect2::new(x, y, w, h);
+            let new_room = TileRect::new(x, y, w, h);
             let mut ok = true;
             for other_room in rooms.iter() {
                 if new_room.intersect(other_room) {
@@ -190,49 +192,24 @@ impl MapBuilder {
             let stolen = data.take().unwrap();
 
             match stolen.tile.texture_index {
-                10 => commands.entity(ent.unwrap()).insert(Wall),
+                10 => commands
+                    .entity(ent.unwrap())
+                    .insert(Wall)
+                    .insert(TilePaint::Invisible),
                 // .insert(Collider::cuboid(16., 16.)),
                 // ,
                 // .insert(RigidBody::Fixed),
-                6 => commands.entity(ent.unwrap()).insert(Floor),
+                6 => commands
+                    .entity(ent.unwrap())
+                    .insert(Floor)
+                    .insert(TilePaint::Invisible),
                 _ => panic!(),
             };
 
             *data = Some(stolen);
         });
 
-        (layer_builder, rooms.remove(0))
-    }
-}
-
-#[derive(Debug, Component)]
-pub struct Rect2 {
-    pub x1: u32,
-    pub y1: u32,
-    pub x2: u32,
-    pub y2: u32,
-}
-
-impl Rect2 {
-    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
-        Self {
-            x1: x,
-            y1: y,
-            x2: x + width,
-            y2: y + height,
-        }
-    }
-
-    // Returns true if this overlaps with other
-    pub fn intersect(&self, other: &Rect2) -> bool {
-        self.x1 <= other.x2 && self.x2 >= other.x1 && self.y1 <= other.y2 && self.y2 >= other.y1
-    }
-
-    pub fn center(&self) -> Vec2 {
-        Vec2::new(
-            (self.x1 + self.x2) as f32 / 2.,
-            (self.y1 + self.y2) as f32 / 2.,
-        )
+        (layer_builder, Room(rooms.remove(0)))
     }
 }
 

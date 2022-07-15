@@ -2,14 +2,14 @@
 //! The console is currently not finished, e.g. movement is still registered even if the console is open
 use bevy::{ecs::system::Resource, prelude::*};
 use bevy_console::{
-    reply, reply_failed, AddConsoleCommand, CommandArgs, CommandHelp, CommandName, ConsoleCommand,
-    ConsoleConfiguration, ConsoleOpen, ToggleConsoleKey,
+    reply, reply_failed, AddConsoleCommand, CommandArgs, CommandHelp, CommandInfo, CommandName,
+    ConsoleCommand, ConsoleConfiguration, ConsoleOpen, PrintConsoleLine, ToggleConsoleKey,
 };
 use leafwing_input_manager::prelude::InputMap;
-use std::str::FromStr;
+use std::{iter::empty, str::FromStr};
 use strum::EnumString;
 
-use crate::{entity::Player, logic::MovementAction};
+use crate::{components::Player, core::MovementAction};
 // debatable that this should be in ui
 
 /// The plugin representing the Console UI element
@@ -17,23 +17,54 @@ pub struct ConsolePlugin;
 
 impl Plugin for ConsolePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(bevy_console::ConsolePlugin)
-            .insert_resource(ConsoleConfiguration {
-                keys: vec![
-                    ToggleConsoleKey::KeyCode(KeyCode::Escape),
-                    ToggleConsoleKey::KeyCode(KeyCode::Grave),
-                    ToggleConsoleKey::KeyCode(KeyCode::F1),
-                ],
-                history_size: 50,
-
-                ..Default::default()
-            })
-            .insert_resource(ConsoleOpen { open: true });
+        app.insert_resource(ConsoleConfiguration {
+            keys: vec![
+                ToggleConsoleKey::KeyCode(KeyCode::Escape),
+                ToggleConsoleKey::KeyCode(KeyCode::Grave),
+                ToggleConsoleKey::KeyCode(KeyCode::F1),
+            ],
+            history_size: 100,
+            scrollback_size: 2000,
+            ..Default::default()
+        })
+        .insert_resource(ConsoleOpen { open: true })
+        .add_plugin(bevy_console::ConsolePlugin)
+        .add_startup_system(welcome);
 
         app.add_console_command::<BindCommand, _, _>(bind_command);
         app.add_console_command::<LogCommand, _, _>(log_command);
         app.add_console_command::<CloseCommand, _, _>(close_command);
     }
+}
+static WELCOME_MESSAGE: &str = r#"
+Welcome to game.
+This console is your pause screen. Press F1/esc/` to open/close the console.
+Here is a list of available commands. Type help to see it again, or help <command> for information on a specific command. 
+"#;
+
+fn welcome(mut writer: EventWriter<PrintConsoleLine>, config: Res<ConsoleConfiguration>) {
+    writer.send(PrintConsoleLine {
+        line: WELCOME_MESSAGE.into(),
+    });
+    // reply!(help, "Available commands:");
+    let longest_command_name = config
+        .commands
+        .keys()
+        .map(|name| name.len())
+        .max()
+        .unwrap_or(0);
+    for (name, cmd) in &config.commands {
+        let mut line = format!("  {name}{}", " ".repeat(longest_command_name - name.len()));
+        if let Some(CommandInfo {
+            description: Some(description),
+            ..
+        }) = cmd
+        {
+            line.push_str(&format!(" - {description}"));
+        }
+        writer.send(PrintConsoleLine { line: line.into() });
+    }
+    writer.send(PrintConsoleLine { line: "".into() });
 }
 
 /// Rebinds a key
@@ -103,7 +134,7 @@ fn log_command(mut log: ConsoleCommand<LogCommand>) {
     }
 }
 
-/// Closes console
+/// Closes console, unpausing the game
 #[derive(ConsoleCommand)]
 #[console_command(name = "close")]
 struct CloseCommand;

@@ -81,22 +81,19 @@ fn toggle_visibility(
     fps_text_query.single_mut().is_visible = fps_toggled.on;
 }
 
-/// System that updates the FPS values, if FPStimer is finished and text is visible
+/// System that updates the FPS values
 fn update_text(
     diagnostics: Res<Diagnostics>,
     mut fps_text_query: Query<(&mut Text, &Visibility), With<FPSText>>,
 ) {
     let (mut text, visible) = fps_text_query.single_mut();
-    // Check if its time to update the FPS
     if visible.is_visible {
-        // && timer.tick(time.delta()).just_finished() {
         if let Some(diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(mut value) = diagnostic.value() {
-                if let Some(mut avg) = diagnostic.average() {
-                    value = (value as i32).into();
-                    avg = (avg as i32).into();
-                    text.sections[1].value =
-                        format!("{} ({})", &value.to_string(), &avg.to_string());
+            if let Some(value) = diagnostic.value() {
+                if let Some(avg) = diagnostic.average() {
+                    let value = value as i32;
+                    let avg = avg as i32;
+                    text.sections[1].value = format!("{value} ({avg})");
                 }
             }
         }

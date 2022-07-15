@@ -13,36 +13,35 @@
     // unused_results
 )]
 
-mod debug;
-mod entity;
-mod input;
-mod level;
-mod logic;
+mod components;
+mod core;
+mod map;
 mod render;
-mod tilemap;
 mod ui;
 mod util;
 
-use bevy::{prelude::*, window::PresentMode};
+use std::io::Write;
+
+use crate::core::{
+    MousePlugin, MovementAction, MovementPlugin, PlayerHoveredPlugin, SpellPlugin, TileCursor,
+};
+use bevy::{log::LogPlugin, prelude::*, window::PresentMode};
 use bevy_console::ConsoleOpen;
 use bevy_easings::EasingsPlugin;
 use bevy_ecs_tilemap::prelude::*;
 use bevy_rapier2d::prelude::*;
-use entity::*;
-use input::*;
+use components::*;
 use iyes_loopless::prelude::*;
 use leafwing_input_manager::{
     prelude::{ActionState, InputMap},
     InputManagerBundle,
 };
-use level::{FieldOfView, FovPlugin};
-use logic::{MovementAction, MovementPlugin, PlayerHoveredPlugin, SpellPlugin, TileCursor};
+use map::{FieldOfView, FovPlugin, MapPlugin, Room};
 use render::RenderPlugin;
-use tilemap::Rect2;
 use ui::*;
-use util::TILE_SIZE;
+use util::{systems::set_texture_filters_to_nearest, TILE_SIZE};
 
-use crate::debug::DebugPlugin;
+use util::DebugPlugin;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ActiveState {
@@ -69,54 +68,64 @@ pub enum GameState {
 //     Render,
 // }
 
+trait Test<'a> {
+    type Writer: Write;
+    fn make_writer_for(&'a self, meta: &bevy::utils::tracing::Metadata<'_>) -> Self::Writer;
+}
+
 fn main() {
     let mut app = App::new();
 
-    app.insert_resource(WindowDescriptor {
-        title: "Game".to_string(),
-        width: 800f32,
-        height: 600f32,
-        present_mode: PresentMode::Immediate,
-        resizable: true,
-        transparent: false,
-        position: None,
-        resize_constraints: bevy::window::WindowResizeConstraints {
-            min_width: 200f32,
-            min_height: 200f32,
+    app.add_plugin(crate::util::LogPlugin)
+        .insert_resource(WindowDescriptor {
+            title: "Game".to_string(),
+            width: 800f32,
+            height: 600f32,
+            present_mode: PresentMode::Immediate,
+            resizable: true,
+            transparent: false,
+            position: None,
+            resize_constraints: bevy::window::WindowResizeConstraints {
+                min_width: 200f32,
+                min_height: 200f32,
+                ..Default::default()
+            },
+            scale_factor_override: None,
+            mode: bevy::window::WindowMode::Windowed,
+            cursor_locked: false,
+            cursor_visible: true,
+            decorations: true,
+        })
+        .insert_resource(RapierConfiguration {
+            gravity: Vec2::ZERO,
             ..Default::default()
-        },
-        scale_factor_override: None,
-        mode: bevy::window::WindowMode::Windowed,
-        cursor_locked: false,
-        cursor_visible: true,
-        decorations: true,
-    })
-    .insert_resource(RapierConfiguration {
-        gravity: Vec2::ZERO,
-        ..Default::default()
-    })
-    // .add_stage_before(CoreStage::Update, GameStage::Input, SystemStage::parallel())
-    // .add_stage_after(GameStage::Input, GameStage::Logic, SystemStage::parallel())
-    // .add_stage_after(GameStage::Logic, GameStage::Render, SystemStage::parallel())
-    .add_loopless_state(ActiveState::Paused)
-    .add_loopless_state(GameState::GeneratingMap)
-    .insert_resource(ClearColor(Color::rgb(0.15, 0.1, 0.15)))
-    // .add_plugins(RetroPlugins::default())
-    .add_plugins(DefaultPlugins)
-    .add_plugin(TilemapPlugin)
-    .add_plugin(EasingsPlugin)
-    .add_plugin(MousePlugin)
-    .add_plugin(MovementPlugin)
-    .add_plugin(UiPlugin)
-    .add_plugin(FovPlugin)
-    .add_plugin(PlayerHoveredPlugin)
-    .add_plugin(RenderPlugin)
-    .add_plugin(SpellPlugin)
-    .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
-    .add_plugin(RapierDebugRenderPlugin::default())
-    // todo disable features
-    .add_exit_system(GameState::GeneratingMap, setup_player)
-    .add_system(update_state);
+        })
+        // .add_stage_before(CoreStage::Update, GameStage::Input, SystemStage::parallel())
+        // .add_stage_after(GameStage::Input, GameStage::Logic, SystemStage::parallel())
+        // .add_stage_after(GameStage::Logic, GameStage::Render, SystemStage::parallel())
+        .add_loopless_state(ActiveState::Paused)
+        .add_loopless_state(GameState::GeneratingMap)
+        //TODO: Convar
+        .insert_resource(ClearColor(Color::hex("171717").unwrap()))
+        // .add_plugins(RetroPlugins::default())
+        .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
+        .add_plugin(TilemapPlugin)
+        // .add_plugin(EasingsPlugin)
+        //TODO cleanup plugins
+        .add_plugin(MousePlugin)
+        .add_plugin(MovementPlugin)
+        .add_plugin(UiPlugin)
+        .add_plugin(FovPlugin)
+        .add_plugin(PlayerHoveredPlugin)
+        .add_plugin(MapPlugin)
+        .add_plugin(RenderPlugin)
+        .add_plugin(SpellPlugin)
+        // todo disable features
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
+        .add_plugin(RapierDebugRenderPlugin::default())
+        .add_exit_system(GameState::GeneratingMap, setup_player)
+        .add_system(update_state)
+        .add_system(set_texture_filters_to_nearest);
 
     #[cfg(debug_assertions)]
     app.add_plugin(DebugPlugin);
@@ -125,9 +134,7 @@ fn main() {
 }
 
 /// Set up for the initial game state
-fn setup_player(mut commands: Commands, asset_server: Res<AssetServer>, rooms: Query<&Rect2>) {
-    // let safe_player_pos = build_and_insert_map(&mut commands, &asset_server);
-
+fn setup_player(mut commands: Commands, asset_server: Res<AssetServer>, rooms: Query<&Room>) {
     let font = asset_server.load("fonts/PublicPixel.ttf");
 
     let room = rooms.single().center();
@@ -144,7 +151,7 @@ fn setup_player(mut commands: Commands, asset_server: Res<AssetServer>, rooms: Q
         })
         .insert(Player)
         .insert(PassiveTilePos(TilePos(room.x as u32, room.y as u32)))
-        .insert(FieldOfView::new(6))
+        .insert(FieldOfView::new(4))
         .insert(TileCursor::new())
         .insert(Health(100))
         .insert(RigidBody::Dynamic)
@@ -159,10 +166,13 @@ fn setup_player(mut commands: Commands, asset_server: Res<AssetServer>, rooms: Q
                 (KeyCode::R, MovementAction::Left),
                 (KeyCode::S, MovementAction::Down),
                 (KeyCode::T, MovementAction::Right),
+                (KeyCode::W, MovementAction::Up),
+                (KeyCode::A, MovementAction::Left),
+                (KeyCode::D, MovementAction::Right),
             ]),
         });
 
-    // TOOD: should be in ui
+    // TOOD: should be in ui and not bevy ui
     commands
         .spawn_bundle(TextBundle {
             text: Text::with_section(

@@ -175,9 +175,9 @@ dependencies = [
 
 [[package]]
 name = "async-task"
-version = "4.2.0"
+version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30696a84d817107fc028e049980e09d5e140e8da8f1caeb17e8e950658a3cea9"
+checksum = "7a40729d2133846d9ed0ea60a8b9541bccddab49cd30f0715a1da672fe9a2524"
 
 [[package]]
 name = "atomic_refcell"
@@ -350,8 +350,7 @@ dependencies = [
 [[package]]
 name = "bevy_console"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6559f52e1dd7b47c5d6f5bc5cfb72df54807462bb490e6e52324f506dba4dc74"
+source = "git+https://github.com/Zower/bevy-console#4d2f9f86da1d9d795f19d3dc02748c51a948ed44"
 dependencies = [
  "bevy",
  "bevy_console_derive",
@@ -362,8 +361,7 @@ dependencies = [
 [[package]]
 name = "bevy_console_derive"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f4d9faef0b8f5ac047eab2c75b4833bbea0abb874e84eded1532e961e88bf0"
+source = "git+https://github.com/Zower/bevy-console#4d2f9f86da1d9d795f19d3dc02748c51a948ed44"
 dependencies = [
  "better-bae",
  "proc-macro2",
@@ -374,8 +372,7 @@ dependencies = [
 [[package]]
 name = "bevy_console_parser"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ebf5df26a9fe3d6aedbe07c3587d8ee8081c7b9aa71622b6a7dcf2229c05420"
+source = "git+https://github.com/Zower/bevy-console#4d2f9f86da1d9d795f19d3dc02748c51a948ed44"
 dependencies = [
  "nom",
  "nom-supreme",
@@ -1744,6 +1741,7 @@ dependencies = [
  "leafwing-input-manager",
  "rand",
  "strum",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1955,9 +1953,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db0d4cf898abf0081f964436dc980e96670a0f36863e4b83aaacdb65c9d7ccc3"
+checksum = "607c8a29735385251a339424dd462993c0fed8fa09d378f259377df08c126022"
 
 [[package]]
 name = "heck"
@@ -2045,7 +2043,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
 dependencies = [
  "autocfg",
- "hashbrown 0.12.1",
+ "hashbrown 0.12.2",
 ]
 
 [[package]]
@@ -2232,9 +2230,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "leafwing-input-manager"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d941215e65fdd841d38a0c5560d2d2682ff822a8b3a6d877ee632b4eef878ff2"
+checksum = "340a1c3ddaf365eb4339aad5b57433c780e99182d8f6454a62c2fce5bec1a5a7"
 dependencies = [
  "bevy_app",
  "bevy_core",
@@ -2254,9 +2252,9 @@ dependencies = [
 
 [[package]]
 name = "leafwing_input_manager_macros"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2021068ba4c014593c93e137914a6d4e96b9a9d020521846756a302fe24b4f9b"
+checksum = "f063b866d4600c6c0ea48e71ac0d30241fdad69f6cabf3691fefb58356519881"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -3363,18 +3361,18 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.138"
+version = "1.0.139"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1578c6245786b9d168c5447eeacfb96856573ca56c9d68fdcf394be134882a47"
+checksum = "0171ebb889e45aa68b44aee0859b3eede84c6f5f5c228e6f140c0b2a0a46cad6"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.138"
+version = "1.0.139"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "023e9b1467aef8a10fb88f25611870ada9800ef7e22afce356bb0d2387b6f27c"
+checksum = "dc1d3230c1de7932af58ad8ffbe1d784bd55efd5a9d84ac24f69c72d83543dfb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3960,9 +3958,9 @@ dependencies = [
 
 [[package]]
 name = "weezl"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c97e489d8f836838d497091de568cf16b117486d529ec5579233521065bd5e4"
+checksum = "9193164d4de03a926d909d3bc7c30543cecb35400c02114792c2cae20d5e2dbb"
 
 [[package]]
 name = "wgpu"

@@ -12,9 +12,11 @@ bevy_ecs_tilemap = "0.6.0"
 bevy_rapier2d = "0.14.1"
 iyes_loopless = "0.6.0"
 leafwing-input-manager = "0.4.0"
-bevy_console = "0.3.1"
+bevy_console = {git = "https://github.com/Zower/bevy-console"}
 bevy-inspector-egui = "0.11.0"
 bevy_easings = "0.7.0"
+
+tracing-subscriber = {version = "0.3.1", features = ["registry", "env-filter"]}
 
 image = "0.23.12"
 rand = "0.8.3"

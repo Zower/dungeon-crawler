@@ -2,7 +2,13 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::{MapQuery, TilePos};
 use iyes_loopless::prelude::*;
 
-use crate::{entity::Player, input::CurrentMousePosition, ActiveState, GameState};
+use crate::{
+    components::Player,
+    map::{Floor, TilePaint},
+    ActiveState, GameState,
+};
+
+use super::mouse::CurrentMousePosition;
 
 #[derive(Debug, Deref, DerefMut, Component, Clone, Copy)]
 pub struct TileCursor(Option<TilePos>);
@@ -48,14 +54,14 @@ impl TileCursor {
     pub fn draw_circle(position: &TilePos, r: u32) -> Vec<TilePos> {
         let mut tiles = vec![];
         let mut i = 1;
-        for y in (position.1 - r)..=(position.1 + r) {
-            for x in (position.0 - i)..=(position.0 + i) {
+        for y in (position.1.saturating_sub(r))..=(position.1.saturating_add(r)) {
+            for x in (position.0.saturating_sub(i))..=(position.0.saturating_add(i)) {
                 tiles.push(TilePos(x, y));
             }
-            if y >= position.1 + 1 {
-                i -= 1;
-            } else if y < position.1 - 1 {
-                i += 1;
+            if y >= position.1.saturating_add(1) {
+                i = i.saturating_sub(1);
+            } else if y < position.1.saturating_sub(1) {
+                i = i.saturating_add(1);
             }
         }
 
@@ -79,7 +85,18 @@ impl Plugin for PlayerHoveredPlugin {
 fn hovered_player_system(
     mut player_query: Query<&mut TileCursor, With<Player>>,
     mouse_position: Res<CurrentMousePosition>,
+    mut map: MapQuery,
+    mut tiles_query: Query<&mut TilePaint, With<Floor>>,
 ) {
     let mut player_cursor = player_query.single_mut();
+
     *player_cursor = TileCursor(**mouse_position);
+
+    for tile in player_cursor.circle(2).unwrap_or(vec![]) {
+        if let Ok(ent) = map.get_tile_entity(tile, 0, 0) {
+            if let Ok(mut current) = tiles_query.get_mut(ent) {
+                *current = current.greater_of(TilePaint::CursorDraw(Color::GREEN));
+            }
+        }
+    }
 }

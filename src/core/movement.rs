@@ -1,5 +1,5 @@
 use crate::{
-    entity::PassiveTilePos,
+    components::PassiveTilePos,
     util::{tile_from_trans, PlayerQuery},
     ActiveState, GameState,
 };
@@ -55,7 +55,8 @@ fn update_player_velocity(
 ) {
     let (mut vel, action_state) = player_query.single_mut();
 
-    let speed = 130.;
+    //TODO: make this a constant or component
+    let speed = 100.;
 
     let mut input = Vec2::ZERO;
 
